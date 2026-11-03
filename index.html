@@ -1,0 +1,425 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+    <meta name="theme-color" content="#08090b" />
+    <title>잠실도</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/galmuri@2.40.3/dist/galmuri.css" />
+    <style>
+      /*
+        타이포 규칙: 모든 치수는 게임 픽셀(--px)의 정수배.
+        픽셀 폰트는 자간을 소수로 주면 격자가 깨지므로 0 또는 1px(게임 픽셀) 단위로만 조정한다.
+        Galmuri9 = 10px, Galmuri11 = 12px, Galmuri14 = 15px 가 각 폰트의 설계 크기.
+      */
+      :root {
+        --px: 4px;
+        --bg: #08090b;
+        --pale: #c9ccd3;
+        --dim: #6b707a;
+        --line: #24272e;
+        --accent: #e0a458;
+      }
+      * { box-sizing: border-box; }
+      html, body {
+        margin: 0;
+        height: 100%;
+        background: var(--bg);
+        overflow: hidden;
+      }
+      body {
+        display: grid;
+        place-items: center;
+        touch-action: none;
+        user-select: none;
+        -webkit-user-select: none;
+        -webkit-touch-callout: none;
+        -webkit-tap-highlight-color: transparent;
+      }
+      #stage { position: relative; }
+      #game {
+        display: block;
+        width: 100%;
+        height: 100%;
+        image-rendering: crisp-edges;
+        image-rendering: pixelated;
+        cursor: crosshair;
+      }
+      #ui {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        font-family: Galmuri11, monospace;
+        color: var(--pale);
+        -webkit-font-smoothing: none;
+      }
+
+      /* ── 화면 ── */
+      .screen {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        padding: calc(var(--px) * 48) calc(var(--px) * 56);
+        background: var(--bg);
+        opacity: 0;
+        visibility: hidden;
+        transition: opacity 600ms ease, visibility 0s linear 600ms;
+        cursor: pointer;
+      }
+      .screen.is-on {
+        opacity: 1;
+        visibility: visible;
+        pointer-events: auto;
+        transition: opacity 600ms ease, visibility 0s;
+      }
+      .label {
+        margin: 0;
+        font-family: Galmuri9, monospace;
+        font-size: calc(var(--px) * 10);
+        line-height: calc(var(--px) * 12);
+        letter-spacing: var(--px);
+        color: var(--dim);
+      }
+      .title {
+        margin: calc(var(--px) * 4) 0 0;
+        font-family: Galmuri14, monospace;
+        font-weight: 400;
+        font-size: calc(var(--px) * 45);
+        line-height: calc(var(--px) * 48);
+        letter-spacing: 0;
+        color: var(--pale);
+      }
+      .headline {
+        margin: calc(var(--px) * 4) 0 0;
+        font-family: Galmuri14, monospace;
+        font-weight: 400;
+        font-size: calc(var(--px) * 15);
+        line-height: calc(var(--px) * 20);
+        color: var(--pale);
+      }
+      .rule {
+        height: var(--px);
+        margin: calc(var(--px) * 8) 0 calc(var(--px) * 8);
+        border: 0;
+        background: var(--line);
+      }
+      .body {
+        margin: 0;
+        font-size: calc(var(--px) * 12);
+        line-height: calc(var(--px) * 16);
+      }
+      .body.is-dim { color: var(--dim); }
+      .rows { margin: calc(var(--px) * 8) 0 0; }
+      .rows > div { display: flex; }
+      .rows dt {
+        width: calc(var(--px) * 36);
+        font-size: calc(var(--px) * 12);
+        line-height: calc(var(--px) * 16);
+        color: var(--dim);
+      }
+      .rows dd {
+        margin: 0;
+        font-size: calc(var(--px) * 12);
+        line-height: calc(var(--px) * 16);
+      }
+      .rows .is-accent { color: var(--accent); }
+      .cta {
+        margin: auto 0 0;
+        font-family: Galmuri9, monospace;
+        font-size: calc(var(--px) * 10);
+        line-height: calc(var(--px) * 12);
+        color: var(--dim);
+        animation: blink 1.2s steps(2, jump-none) infinite;
+      }
+      @keyframes blink { 50% { opacity: 0.35; } }
+
+      /* ── 보스 이름: 아래 벽, 체력선(x 344–464) 왼쪽 6px에 오른쪽 정렬 ── */
+      #bossName {
+        position: absolute;
+        right: calc(var(--px) * 142);
+        top: calc(var(--px) * 256);
+        margin: 0;
+        font-family: Galmuri9, monospace;
+        font-size: calc(var(--px) * 10);
+        line-height: calc(var(--px) * 12);
+        color: var(--pale);
+        opacity: 0;
+        transition: opacity 400ms ease;
+      }
+      #bossName.is-on { opacity: 1; }
+
+      /* ── 오프닝: 하단 중앙 흰 도트 글씨, 세나는 은색, 우측 상단 건너뛰기 ── */
+      #cine { position: absolute; inset: 0; display: none; pointer-events: none; }
+      #cine.is-on { display: block; }
+      #cineText {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: calc(var(--px) * 22);
+        margin: 0;
+        text-align: center;
+        font-family: Galmuri11, monospace;
+        font-size: calc(var(--px) * 12);
+        line-height: calc(var(--px) * 16);
+        color: #ffffff;
+        word-break: keep-all;
+        text-shadow: 0 var(--px) 0 #000;
+      }
+      #cineText.is-sena { color: #dfe6f0; }
+      #cineSkip {
+        position: absolute;
+        top: calc(var(--px) * 8);
+        right: calc(var(--px) * 10);
+        padding: var(--px) calc(var(--px) * 4);
+        border: 0;
+        background: transparent;
+        font-family: Galmuri9, monospace;
+        font-size: calc(var(--px) * 10);
+        line-height: calc(var(--px) * 12);
+        color: var(--dim);
+        cursor: pointer;
+        pointer-events: auto;
+      }
+      #cineSkip:hover { color: var(--pale); }
+
+      /* ── 조작 안내: 화면 중앙, 3초 뒤 사라짐 ── */
+      #center {
+        position: absolute;
+        left: 0;
+        right: 0;
+        top: calc(var(--px) * 124);
+        margin: 0;
+        text-align: center;
+        font-family: Galmuri11, monospace;
+        font-size: calc(var(--px) * 12);
+        line-height: calc(var(--px) * 16);
+        color: var(--pale);
+        opacity: 0;
+      }
+      #center.is-on { animation: center 3.6s steps(18, end) forwards; }
+      @keyframes center {
+        0% { opacity: 0; }
+        8% { opacity: 1; }
+        83% { opacity: 1; }
+        100% { opacity: 0; }
+      }
+
+      /* ── 전투 훈수: 바닥 왼쪽 아래 구석, 작은 세나 얼굴 + 한 줄 ── */
+      #hint {
+        position: absolute;
+        left: calc(var(--px) * 20);
+        top: calc(var(--px) * 234);
+        display: flex;
+        align-items: center;
+        gap: calc(var(--px) * 4);
+        margin: 0;
+        padding: var(--px) calc(var(--px) * 4) var(--px) var(--px);
+        background: rgba(7, 8, 10, 0.72);
+        box-shadow: 0 0 0 var(--px) rgba(201, 204, 211, 0.18);
+        opacity: 0;
+      }
+      #hint img {
+        display: block;
+        width: calc(var(--px) * 14);
+        height: calc(var(--px) * 14);
+        image-rendering: pixelated;
+      }
+      #hintText {
+        font-family: Galmuri9, monospace;
+        font-size: calc(var(--px) * 10);
+        line-height: calc(var(--px) * 12);
+        color: #eef0f3;
+        white-space: nowrap;
+      }
+      #hint.is-on { animation: hint 3.2s steps(16, end) forwards; }
+      @keyframes hint {
+        0% { opacity: 0; }
+        4% { opacity: 1; }
+        85% { opacity: 1; }
+        100% { opacity: 0; }
+      }
+
+      /* ── 대사창: 주황 이중 테두리, 왼쪽 글, 오른쪽 얼굴, 다 나오면 ▼ ── */
+      #talk {
+        position: absolute;
+        left: calc(var(--px) * 12);
+        right: calc(var(--px) * 12);
+        bottom: calc(var(--px) * 10);
+        height: calc(var(--px) * 66);
+        display: none;
+        padding: calc(var(--px) * 9) calc(var(--px) * 12);
+        background: #170f26;
+        border: calc(var(--px) * 2) solid #f4a83c;
+        box-shadow:
+          inset 0 0 0 var(--px) #8a4a14,
+          0 0 0 var(--px) #5a2c0a,
+          0 0 calc(var(--px) * 6) rgba(244, 168, 60, 0.35);
+        pointer-events: auto;
+        cursor: pointer;
+      }
+      #talk.is-on { display: flex; gap: calc(var(--px) * 10); }
+      #talkBody { flex: 1; min-width: 0; }
+      #talkName {
+        margin: 0 0 calc(var(--px) * 4);
+        font-family: Galmuri9, monospace;
+        font-size: calc(var(--px) * 10);
+        line-height: calc(var(--px) * 12);
+        color: #f4a83c;
+      }
+      #talkText {
+        margin: 0;
+        font-family: Galmuri11, monospace;
+        font-size: calc(var(--px) * 12);
+        line-height: calc(var(--px) * 18);
+        color: #f3f0ff;
+        word-break: keep-all;
+      }
+      #talkFace {
+        width: calc(var(--px) * 44);
+        height: calc(var(--px) * 44);
+        align-self: center;
+        image-rendering: pixelated;
+        box-shadow: 0 0 0 var(--px) #8a4a14;
+      }
+      #talkNext {
+        position: absolute;
+        left: 50%;
+        bottom: calc(var(--px) * -1);
+        transform: translateX(-50%);
+        margin: 0;
+        font-family: Galmuri9, monospace;
+        font-size: calc(var(--px) * 10);
+        line-height: calc(var(--px) * 10);
+        color: #f4a83c;
+        opacity: 0;
+      }
+      #talk.is-complete #talkNext { animation: blink 0.8s steps(2, jump-none) infinite; opacity: 1; }
+
+      /* ── 형태 이름: 바뀔 때만 잠깐 ── */
+      #formTag {
+        position: absolute;
+        transform: translate(-50%, -100%);
+        margin: 0;
+        font-family: Galmuri9, monospace;
+        font-size: calc(var(--px) * 10);
+        line-height: calc(var(--px) * 12);
+        color: #eef0f3;
+        white-space: nowrap;
+        opacity: 0;
+      }
+      #formTag.is-on { animation: tag 700ms steps(7, end) forwards; }
+      @keyframes tag {
+        0% { opacity: 1; }
+        70% { opacity: 1; }
+        100% { opacity: 0; }
+      }
+
+      /* ── 모바일 공격 버튼 ── */
+      #attack {
+        position: fixed;
+        right: max(20px, env(safe-area-inset-right));
+        bottom: max(24px, env(safe-area-inset-bottom));
+        width: 76px;
+        height: 76px;
+        padding: 0;
+        border: 2px solid rgba(201, 204, 211, 0.45);
+        border-radius: 0;
+        background: rgba(8, 9, 11, 0.55);
+        color: var(--pale);
+        font-family: Galmuri11, monospace;
+        font-size: 24px;
+        line-height: 24px;
+        touch-action: none;
+      }
+      #attack[hidden] { display: none; }
+      #attack.is-down { background: var(--pale); color: var(--bg); }
+
+      /* ── 모바일 스킬 버튼: 공격 버튼 위에 한 줄 ── */
+      #skills {
+        position: fixed;
+        right: max(20px, env(safe-area-inset-right));
+        bottom: calc(max(24px, env(safe-area-inset-bottom)) + 88px);
+        display: flex;
+        gap: 6px;
+      }
+      #skills[hidden] { display: none; }
+      #skills button {
+        width: 44px;
+        height: 44px;
+        padding: 0;
+        border: 2px solid rgba(255, 138, 42, 0.6);
+        border-radius: 0;
+        background: rgba(8, 9, 11, 0.55);
+        color: #ffc23d;
+        font-family: Galmuri11, monospace;
+        font-size: 18px;
+        touch-action: none;
+      }
+      #skills button:active { background: #ff8a2a; color: var(--bg); }
+    </style>
+  </head>
+  <body>
+    <div id="stage">
+      <canvas id="game" width="480" height="270"></canvas>
+      <div id="ui">
+        <section id="title" class="screen">
+          <p class="label">CHAPTER 1 · STAGE 1</p>
+          <h1 class="title">잠실도</h1>
+          <hr class="rule" />
+          <p class="body">이 게임은 우울과 오래된 상처를 다룹니다.</p>
+          <dl class="rows">
+            <div><dt>이동</dt><dd>클릭 · 터치</dd></div>
+            <div><dt>공격</dt><dd>Space · 버튼</dd></div>
+            <div><dt>정령</dt><dd>Q W E R</dd></div>
+          </dl>
+          <p class="cta">눌러서 시작</p>
+        </section>
+
+        <section id="down" class="screen">
+          <p class="label">DOWN</p>
+          <h2 class="headline">쓰러졌다.</h2>
+          <hr class="rule" />
+          <p class="body is-dim">방에서 다시 눈을 뜬다.</p>
+          <p class="cta">눌러서 다시</p>
+        </section>
+
+        <section id="clear" class="screen">
+          <p class="label">CHAPTER 1 · STAGE 1 · CLEAR</p>
+          <h2 class="headline">마주했다.</h2>
+          <hr class="rule" />
+          <p class="body is-dim">알람은 그냥 알람이 되었다.</p>
+          <dl class="rows">
+            <div><dt>온기</dt><dd id="clearWarmth" class="is-accent">0</dd></div>
+          </dl>
+          <p class="cta">눌러서 다시</p>
+        </section>
+
+        <div id="cine">
+          <p id="cineText"></p>
+          <button id="cineSkip" type="button">건너뛰기</button>
+        </div>
+        <p id="center"></p>
+        <p id="hint"><img src="/portraits/sena.png" alt="세나" /><span id="hintText"></span></p>
+        <div id="talk">
+          <div id="talkBody">
+            <p id="talkName"></p>
+            <p id="talkText"></p>
+          </div>
+          <img id="talkFace" alt="" />
+          <p id="talkNext">▼</p>
+        </div>
+        <p id="bossName"></p>
+        <p id="formTag"></p>
+      </div>
+    </div>
+    <button id="attack" type="button" hidden aria-label="공격">공격</button>
+    <div id="skills" hidden>
+      <button type="button" data-skill="q">Q</button>
+      <button type="button" data-skill="w">W</button>
+      <button type="button" data-skill="e">E</button>
+      <button type="button" data-skill="r">R</button>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
