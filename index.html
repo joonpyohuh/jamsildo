@@ -488,14 +488,13 @@
       }
       .menu-button:hover { background: #252830; }
       #openSettings { border-color: transparent; background: transparent; font-size: 14px; color: var(--dim); }
-      /* 게임 시작 아래로 펼쳐지는 선택: 회원가입(강조색 테두리) / 게스트(기본) / 로그인(글자 링크) */
-      .start-choice { display: flex; flex-direction: column; gap: 8px; padding: 12px 0 4px; border-top: 1px solid var(--line); }
+      /* 로그인 전 시작 선택: 회원가입(강조색 테두리) / 게스트(기본) / 로그인(글자 링크) */
+      .start-choice { display: flex; flex-direction: column; gap: 8px; }
       .start-choice[hidden] { display: none; }
       .start-choice .menu-button { display: flex; flex-direction: column; align-items: center; gap: 4px; min-height: 60px; padding: 10px 24px; font-size: 15px; line-height: 1.3; }
       .choice-sub { font: 11px/1.4 Galmuri9, monospace; letter-spacing: 0.02em; color: var(--dim); }
       .menu-button.is-accent { border-color: var(--accent); color: var(--accent); }
       .menu-button.is-accent .choice-sub { color: #c9a777; }
-      #startGame[aria-expanded="true"] { background: #1b1e25; }
       .text-button { min-height: 40px; padding: 8px; border: 0; background: transparent; color: var(--dim); font: 12px/1.6 Galmuri11, monospace; letter-spacing: 0.02em; text-decoration: underline; text-underline-offset: 4px; cursor: pointer; }
       .text-button:hover { color: var(--pale); }
       button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
@@ -585,6 +584,15 @@
       #swapSpirit[hidden] { display: none; }
       .is-over { opacity: 0.6; }
       /* 스킬 설명 (마우스를 올렸을 때) */
+      /* 좌클릭 적 정보: 스킬 설명과 같은 패널. 오른쪽 열은 지도 아래가 비어 있다. */
+      #enemyInfo { position: fixed; z-index: 4; top: calc(var(--st) + 108px); right: calc(var(--sr) + 6px); width: 196px; padding: 9px 11px 10px; border: 1px solid #5c626d; background: #0a0b0ef2; color: var(--pale); }
+      #enemyInfo[hidden] { display: none; }
+      #enemyInfoName { display: block; font: 400 13px/1.4 Galmuri11, monospace; color: var(--accent); }
+      #enemyInfoMeta { display: block; margin-top: 1px; font: 10px/1.5 Galmuri9, monospace; color: var(--dim); letter-spacing: 0.02em; }
+      #enemyInfoBar { display: block; height: 2px; margin-top: 6px; background: var(--line); }
+      #enemyInfoFill { display: block; height: 100%; background: var(--accent); }
+      #enemyInfoText { white-space: pre-line; margin: 7px 0 0; font: 11px/1.65 Galmuri11, monospace; color: #cfd2d8; word-break: keep-all; }
+      @media (min-height: 560px) { #enemyInfo { top: calc(var(--st) + 136px); } }
       #skillTip { position: fixed; z-index: 30; width: 232px; padding: 9px 11px 10px; border: 1px solid #5c626d; background: #0a0b0ef2; color: var(--pale); pointer-events: none; }
       #skillTip[hidden] { display: none; }
       #skillTip strong { display: block; font: 400 13px/1.4 Galmuri11, monospace; color: var(--accent); }
@@ -609,7 +617,7 @@
         #title .tagline { grid-column: 1; grid-row: 3; align-self: start; margin-top: 8px; }
         #title .menu-actions { grid-column: 2; grid-row: 1 / 4; margin: 0; gap: 6px; }
         #title .menu-button { min-height: 44px; padding: 6px 20px; font-size: 14px; }
-        .start-choice { padding-top: 6px; gap: 6px; }
+        .start-choice { gap: 6px; }
         .start-choice .menu-button { min-height: 48px; gap: 2px; }
         .text-button { min-height: 32px; padding: 4px; }
         html:not(.in-game) #accountBar { right: auto; left: max(8px, var(--sa-l)); top: 6px; align-items: flex-start; }
@@ -626,7 +634,7 @@
           <h1 class="title">잠실도</h1>
           <p class="tagline">we can win</p>
           <div class="menu-actions">
-            <button id="startGame" class="menu-button" type="button" disabled aria-expanded="false" aria-controls="startChoice">게임 시작</button>
+            <button id="startGame" class="menu-button" type="button" disabled>게임 시작</button>
             <div id="startChoice" class="start-choice" hidden>
               <button id="startRegister" class="menu-button is-accent" type="button">회원가입<span class="choice-sub">기록이 저장됩니다</span></button>
               <button id="startGuest" class="menu-button" type="button">게스트로 시작<span class="choice-sub">진행이 저장되지 않습니다</span></button>
@@ -680,6 +688,7 @@
         <p id="formTag"></p>
         <p id="callBubble"></p>
         <p id="roomLabel" hidden></p>
+        <aside id="enemyInfo" hidden aria-label="적 정보"><strong id="enemyInfoName"></strong><span id="enemyInfoMeta"></span><span id="enemyInfoBar"><span id="enemyInfoFill"></span></span><p id="enemyInfoText"></p></aside>
       </div>
     </div>
     </div>

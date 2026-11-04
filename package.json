@@ -12,6 +12,7 @@
     "test:responsive": "node tests/responsive.cjs",
     "test:accounts": "node tests/accounts.cjs",
     "test:admin": "node tests/admin-cheats.cjs",
+    "test:controls": "node tests/controls.cjs",
     "assets:build": "node scripts/build-assets.cjs"
   },
   "devDependencies": {

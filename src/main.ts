@@ -35,6 +35,7 @@ const skillAim=must<HTMLElement>('#skillAim');
 const swapBtn=must<HTMLButtonElement>('#swapSpirit');
 const startButton=must<HTMLButtonElement>('#startGame');
 const continueButton=must<HTMLButtonElement>('#continueGame');
+const guestButton=must<HTMLButtonElement>('#startGuest');
 
 canvas.width = VIEW_W;
 canvas.height = VIEW_H;
@@ -84,27 +85,21 @@ settingsDialog.addEventListener('close', () => {
 });
 rewardDialog.addEventListener('close',()=>canvas.focus({preventScroll:true}));
 continueButton.addEventListener('click',()=>{if(assetsReady){sfx.unlock();game.resumeRun();}});
-const startChoice=must<HTMLDivElement>('#startChoice');
-function toggleStartChoice(open:boolean):void {
-  startChoice.hidden=!open;startButton.setAttribute('aria-expanded',String(open));
-  if(open)must<HTMLButtonElement>('#startRegister').focus({preventScroll:true});
-}
 startButton.addEventListener('click', () => {
   if(!assetsReady)return;
   void enterLandscape();
-  // 로그인하지 않았으면 바로 시작하지 않고 아래에 게스트 / 회원가입을 펼친다
-  if(!accounts.signedIn){toggleStartChoice(startChoice.hidden);return;}
   if(!accounts.confirmStart())return;
   sfx.unlock();
   game.onScreenTap();
 });
-must<HTMLButtonElement>('#startGuest').addEventListener('click',()=>{
+guestButton.addEventListener('click',()=>{
   if(!assetsReady)return;
-  sfx.unlock();accounts.playAsGuest();toggleStartChoice(false);
+  void enterLandscape();
+  sfx.unlock();accounts.playAsGuest();
   game.onScreenTap();
 });
-must<HTMLButtonElement>('#startRegister').addEventListener('click',()=>{if(assetsReady)accounts.openAuth('register');});
-must<HTMLButtonElement>('#startLogin').addEventListener('click',()=>{if(assetsReady)accounts.openAuth('login');});
+must<HTMLButtonElement>('#startRegister').addEventListener('click',()=>{if(assetsReady){void enterLandscape();accounts.openAuth('register');}});
+must<HTMLButtonElement>('#startLogin').addEventListener('click',()=>{if(assetsReady){void enterLandscape();accounts.openAuth('login');}});
 volume.addEventListener('change', () => {
   sfx.unlock();
   sfx.play('pickup');
@@ -255,7 +250,7 @@ new ResizeObserver(() => { resetInput(); fit(); }).observe(viewportEl);
 applyTouchUi();
 fit();
 
-/* ── 데스크톱 이동: 클릭한 지점으로. 누른 채 끌면 계속 따라간다. ── */
+/* ── 데스크톱 마우스: 우클릭 = 이동(끌면 계속 따라감) / 적이면 공격, 좌클릭 = 적 정보 ── */
 function toGame(e: { clientX: number; clientY: number }): { x: number; y: number } {
   const r = canvas.getBoundingClientRect();
   return {
@@ -278,10 +273,12 @@ canvas.addEventListener('pointerdown', (e) => {
     return;
   }
   if (e.pointerType === 'touch') return;
+  const p = toGame(e);
+  if (e.button === 0) { game.inspectAt(p.x, p.y); return; }
+  if (e.button !== 2 || game.attackAt(p.x, p.y)) return;
   movePointer = e.pointerId;
   movePosition = { clientX: e.clientX, clientY: e.clientY };
   canvas.setPointerCapture(e.pointerId);
-  const p = toGame(e);
   game.moveTo(p.x, p.y, true);
 });
 canvas.addEventListener('pointermove', (e) => {
@@ -312,9 +309,25 @@ uiEl.addEventListener('pointerdown', (e) => {
   else if (target.closest('#down, #clear')) game.onScreenTap();
 });
 
-/* ── 키보드: Space 공격, QWER 정령 스킬, Enter 진행 ── */
+/* ── 키보드: 방향키 이동, Space 공격, QWER 정령 스킬, Enter 진행 ── */
 const ATTACK_KEYS = new Set(['Space', 'KeyJ', 'KeyZ']);
 const SKILL_KEYS: Readonly<Record<string, SkillKey>> = { KeyQ: 'q', KeyW: 'w', KeyE: 'e', KeyR: 'r' };
+const ARROW_KEYS: Readonly<Record<string, readonly [number, number]>> = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
+const heldArrows = new Set<string>();
+let arrowsDriving = false;
+/** 대각선도 같은 속도. 손을 떼면 그 자리에 선다. 마우스로 낸 이동은 건드리지 않는다. */
+function applyArrows(): void {
+  let x = 0, y = 0;
+  for (const code of heldArrows) { const d = ARROW_KEYS[code]; if (d) { x += d[0]; y += d[1]; } }
+  if (x || y) {
+    const length = Math.hypot(x, y);
+    input.move = { x: x / length, y: y / length };
+    arrowsDriving = true;
+  } else if (arrowsDriving) {
+    input.move = { x: 0, y: 0 };
+    arrowsDriving = false;
+  }
+}
 
 window.addEventListener('keydown', (e) => {
   if (settingsDialog.open || rewardDialog.open || accounts.paused || e.target instanceof HTMLInputElement || !assetsReady) return;
@@ -330,6 +343,7 @@ window.addEventListener('keydown', (e) => {
     if (!e.repeat && game.mode === 'play') game.cycleSpirit();
     return;
   }
+  if (ARROW_KEYS[e.code]) { e.preventDefault(); heldArrows.add(e.code); return; }
   const skill = SKILL_KEYS[e.code];
   const isAttack = ATTACK_KEYS.has(e.code);
   if (!skill && !isAttack && e.code !== 'Enter') return;
@@ -346,8 +360,8 @@ window.addEventListener('keydown', (e) => {
   }
   if(game.mode==='embrace'){if(isAttack)game.attackPressed();return;}
   if (game.mode === 'title') {
-    // 타이틀에서 Enter/Space = '게임 시작' 버튼과 같다 (로그인 전이면 선택지를 펼친다)
-    if (!skill) startButton.click();
+    // 타이틀에서 Enter/Space = 바로 시작 (로그인 전이면 게스트로)
+    if (!skill) (accounts.signedIn ? startButton : guestButton).click();
     return;
   }
   if (game.mode === 'down' || game.mode === 'clear') {
@@ -359,6 +373,7 @@ window.addEventListener('keydown', (e) => {
 });
 window.addEventListener('keyup', (e) => {
   if (ATTACK_KEYS.has(e.code)) input.attackHeld = false;
+  heldArrows.delete(e.code);
 });
 
 /* ── 모바일 버튼 ── */
@@ -422,9 +437,10 @@ function resetInput(): void {
   input.skillQueue.length = 0;
   skillPointers.clear();skillAim.hidden=true;
 }
-window.addEventListener('blur', resetInput);
+// 포커스를 잃으면 keyup이 오지 않으니 눌린 방향키도 비운다
+window.addEventListener('blur', () => { resetInput(); heldArrows.clear(); });
 document.addEventListener('visibilitychange', () => {
-  if (document.hidden) resetInput();
+  if (document.hidden) { resetInput(); heldArrows.clear(); }
 });
 
 const skillPointers=new Map<number,{key:SkillKey;x:number;y:number}>();
@@ -510,12 +526,14 @@ function frame(now: number): void {
   last = now;
   const paused=document.hidden||settingsDialog.open||rewardDialog.open||accounts.paused;
   if(paused || (game.mode !== 'play' && game.mode !== 'embrace')) { resetInput(); hideTip(); }
+  if(!paused && (game.mode === 'play' || game.mode === 'embrace')) applyArrows();
   if(!paused) game.update(dt);
   if (!paused && movePosition && (game.mode === 'play'||game.mode==='embrace')) {
     const p = toGame(movePosition);
     game.moveTo(p.x, p.y, false);
   }
   game.render();
+  ui.showEnemyInfo(game.inspectedInfo);
   joystick.hidden = !(touchSeen && (game.mode === 'play' || game.mode === 'embrace'));
   skillPad.hidden = !(game.hasSpirit && game.mode === 'play');
   swapBtn.hidden = !(touchSeen && game.hasSpirit && game.mode === 'play');

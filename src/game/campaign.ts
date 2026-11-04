@@ -51,6 +51,21 @@ export const SKILL_DESC: Record<Element, Record<SkillKey, string>> = {
     r: '5초 동안 무작위 스킬이 연발된다. 끝나면 3초 기절.',
   },
 };
+/** 일반 그늘 이름: 챕터 스프라이트 → 이름. 스프라이트가 없으면 종류 이름으로 돌아간다. */
+export const ENEMY_NAMES: Record<string, string> = {
+  bother: '귀찮음', heavy: '힘듦', gloom: '우울감',
+  enemy_ch01_normal_annoyance: '귀찮음', enemy_ch01_normal_exhaustion: '힘듦', enemy_ch01_normal_depressed_mood: '우울감',
+  enemy_ch02_normal_mirror_shards: '거울 조각', enemy_ch02_normal_whispers: '속삭임', enemy_ch02_normal_stares: '시선',
+  enemy_ch03_normal_laughter_echo: '웃음소리', enemy_ch03_normal_group_chat_alert: '단체방 알림', enemy_ch03_normal_turned_back_shadow: '돌아선 등',
+  enemy_ch04_normal_comparing_voices: '비교하는 목소리', enemy_ch04_normal_closed_bedroom_door: '닫힌 방문',
+};
+/** 좌클릭 정보창 설명 (실제 움직임 기준) */
+export const ENEMY_DESC: Record<string, string> = {
+  bother: '달려들다 멈추기를 반복한다. 멈춘 틈에 친다.',
+  heavy: '느리게 따라오다 웅크린 뒤 덮친다. 웅크리면 옆으로 비킨다.',
+  gloom: '거리를 두고 떠다니며 느린 물방울을 떨군다. 다가가면 물러난다.',
+};
+export const STATUS_LABELS: Record<StatusId, string> = { stun: '기절', slow: '둔화', root: '속박', burn: '화상', mark: '표식', blind: '실명', silence: '침묵' };
 export const SPIRIT_ROLES: Record<Element, string> = { fire: '폭발·화상', water: '밀어내기·회복', wood: '지형·속박', dark: '표식·처형', light: '관통·정화', chaos: '무작위' };
 export const SPIRIT_ASSETS: Record<Element, string> = { fire: 'spirit_fire_mer', water: 'spirit_water_kui', wood: 'spirit_wood_maemae', dark: 'spirit_dark_kai', light: 'spirit_light_luna', chaos: 'spirit_chaos_hidden_unnamed' };
 export const PATTERN_LABELS: Record<string,string> = {

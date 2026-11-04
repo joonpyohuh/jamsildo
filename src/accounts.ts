@@ -130,7 +130,12 @@ export class Accounts {
     el('openAdmin').hidden=!this.user?.is_admin;el('loadCloud').hidden=!this.conflict;
     this.refreshContinue();
   }
-  refreshContinue():void { const raw=readSave();el('continueGame').hidden=!this.user||!raw||raw==='null'; }
+  refreshContinue():void {
+    const raw=readSave();el('continueGame').hidden=!this.user||!raw||raw==='null';
+    // 로그인 전에는 시작 방법을 처음부터 보여준다. 로딩 중에는 잠긴 '게임 시작'만 둔다.
+    const loading=el<HTMLButtonElement>('startGame').disabled;
+    el('startGame').hidden=!this.user&&!loading;el('startChoice').hidden=!!this.user||loading;
+  }
   get signedIn():boolean { return !!this.user; }
   /** Enter로 제출되는 첫 버튼을 모드에 맞춘다 (가입 창에서 Enter가 로그인으로 가지 않게) */
   private orderAuthButtons(mode:'register'|'login'):void {
@@ -168,7 +173,7 @@ export class Accounts {
       this.game.returnToTitle();this.acceptAccount(result);form.reset();this.message(action==='register'?'가입했습니다. 게임 시작 또는 이전 기록 가져오기를 선택해 주세요.':'로그인했습니다. 계속하기로 기록을 이어갈 수 있습니다.');
       if(start){
         // 타이틀에서 연 경우: 가입하면 새로 시작, 로그인하면 기록이 있으면 이어서
-        this.dialog.close();el('startChoice').hidden=true;el('startGame').setAttribute('aria-expanded','false');
+        this.dialog.close();
         const raw=readSave();
         if(action==='login'&&raw&&raw!=='null')this.game.resumeRun();else this.game.onScreenTap();
       }

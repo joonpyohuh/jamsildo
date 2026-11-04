@@ -19,6 +19,8 @@ for (const who of ['sena', 'yunseul'] as const) {
   for (const face of Object.keys(EXPR_INDEX) as Expr[]) new Image().src = portrait(who, face);
 }
 
+export interface EnemyInfo { name: string; meta: string; ratio: number; text: string }
+
 export class Ui {
   private hudTime=0;
   private spiritKey='';
@@ -34,6 +36,11 @@ export class Ui {
   private readonly talkName: HTMLElement;
   private readonly talkText: HTMLElement;
   private readonly talkFace: HTMLImageElement;
+  private readonly enemyPanel: HTMLElement;
+  private readonly enemyName: HTMLElement;
+  private readonly enemyMeta: HTMLElement;
+  private readonly enemyFill: HTMLElement;
+  private readonly enemyText: HTMLElement;
 
   constructor(root: HTMLElement) {
     const q = <T extends HTMLElement = HTMLElement>(sel: string, scope: ParentNode = root): T => {
@@ -53,6 +60,11 @@ export class Ui {
     this.talkName = q('#talkName');
     this.talkText = q('#talkText');
     this.talkFace = q<HTMLImageElement>('#talkFace');
+    this.enemyPanel = q('#enemyInfo');
+    this.enemyName = q('#enemyInfoName');
+    this.enemyMeta = q('#enemyInfoMeta');
+    this.enemyFill = q('#enemyInfoFill');
+    this.enemyText = q('#enemyInfoText');
     if (window.matchMedia('(pointer: coarse)').matches) q('#talkNext').textContent = '터치해서 계속 ▼';
   }
 
@@ -172,6 +184,16 @@ export class Ui {
     for (const [key, el] of Object.entries(this.screens)) {
       el.classList.toggle('is-on', key === id);
     }
+  }
+
+  /** 매 프레임 불린다: 글자가 바뀔 때만 DOM을 건드린다 */
+  showEnemyInfo(info: EnemyInfo | null): void {
+    this.enemyPanel.hidden = !info;
+    if (!info) return;
+    if (this.enemyName.textContent !== info.name) this.enemyName.textContent = info.name;
+    if (this.enemyMeta.textContent !== info.meta) this.enemyMeta.textContent = info.meta;
+    if (this.enemyText.textContent !== info.text) this.enemyText.textContent = info.text;
+    this.enemyFill.style.width = `${info.ratio * 100}%`;
   }
 
   showRoomLabel(text: string | null): void {

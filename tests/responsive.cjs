@@ -50,9 +50,8 @@ const startPlay = page => page.evaluate(async () => {
       assert.equal(await page.locator('#startGame').textContent(), '터치해서 시작');
       await page.screenshot({ path: join(output, `${d.name}-title.png`) });
 
-      // 시작 버튼: 전체화면이 막혀도 에러 없이 진행
-      await page.locator('#startGame').tap();
-      await page.waitForTimeout(150);
+      // 로그인 전: 시작 선택지가 처음부터 보인다. 전체화면이 막혀도 에러 없이 진행
+      assert.equal(await page.locator('#startGame').isVisible(), false);
       await page.screenshot({ path: join(output, `${d.name}-choice.png`) });
       const clipped = await page.evaluate(() => [...document.querySelectorAll('#title .menu-button:not([hidden]), #startLogin')].filter(el => el.offsetParent).map(el => el.getBoundingClientRect()).filter(r => r.top < 0 || r.bottom > innerHeight).length);
       assert.equal(clipped, 0, `${d.name}: 타이틀 메뉴가 화면을 벗어남`);
@@ -131,7 +130,6 @@ const startPlay = page => page.evaluate(async () => {
       const s = await stageBox(page);
       assert.equal(s.w, 640 * d.scale, `${d.name}: 정수 배율`);
       assert.equal(s.x, Math.round((d.w - s.w) / 2), `${d.name}: 가운데`);
-      await page.locator('#startGame').click();
       await page.locator('#startGuest').click();
       await page.waitForFunction(() => window.__jamsildo.mode === 'opening');
       await startPlay(page);
@@ -145,16 +143,16 @@ const startPlay = page => page.evaluate(async () => {
       await page.waitForTimeout(80);
       assert(await page.evaluate(() => window.__jamsildo.equipped[window.__jamsildo.activeSpirit].cooldowns.q > 0), `${d.name}: Q`);
       const box = await page.locator('#game').boundingBox();
-      await page.mouse.click(box.x + box.width * 0.8, box.y + box.height * 0.6);
+      await page.mouse.click(box.x + box.width * 0.8, box.y + box.height * 0.6, { button: 'right' });
       await page.waitForTimeout(60);
-      assert(await page.evaluate(() => window.__jamsildo.player.moving), `${d.name}: 클릭 이동`);
+      assert(await page.evaluate(() => window.__jamsildo.player.moving), `${d.name}: 우클릭 이동`);
       // PC는 창이 세로로 길어도 안내를 띄우지 않는다
       await page.setViewportSize({ width: 700, height: 900 });
       await page.waitForTimeout(100);
       assert.equal(await page.evaluate(() => document.querySelector('#rotateOverlay').open), false);
       await page.setViewportSize({ width: d.w, height: d.h });
       await page.screenshot({ path: join(output, `${d.name}-play.png`) });
-      console.log(`PASS ${d.name} ${d.w}x${d.h}: ${d.scale}배, 터치 버튼 숨김, Q·Tab·클릭 이동`);
+      console.log(`PASS ${d.name} ${d.w}x${d.h}: ${d.scale}배, 터치 버튼 숨김, Q·Tab·우클릭 이동`);
       await page.close();
     }
     console.log(`Screenshots: ${output}`);
