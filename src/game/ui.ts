@@ -95,7 +95,7 @@ export class Ui {
     choices.append(item,close);dialog.oncancel=null;if(!dialog.open)dialog.showModal();
   }
 
-  updateCombat(state:{stage:number;chapter:number;within:number;blocked:boolean;energy:number;maxEnergy:number;warmth:number;armor:number;equipped:readonly SpiritSlot[];active:number;mode:string;slots:number;
+  updateCombat(state:{stage:number;chapter:number;within:number;blocked:boolean;energy:number;maxEnergy:number;infiniteEnergy:boolean;warmth:number;armor:number;equipped:readonly SpiritSlot[];active:number;mode:string;slots:number;
     boss:null|{name:string;hp:number;maxHp:number;phase:number;thresholds:number[];pattern:string;protected:boolean;qte:string|null;enraged:boolean}}):void {
     const now=performance.now();if(now-this.hudTime<80)return;this.hudTime=now;
     const q=<T extends HTMLElement=HTMLElement>(selector:string)=>document.querySelector<T>(selector)!;
@@ -119,7 +119,7 @@ export class Ui {
     q('#spiritSummary').hidden=!active||state.mode!=='play';
     for(const key of ['q','w','e','r'] as const){
       const button=q<HTMLButtonElement>(`#skills [data-skill="${key}"]`),spec=active?SKILLS[active.element][key]:null;
-      const cd=active?.cooldowns[key]??0;button.disabled=!active||state.blocked||cd>0||state.energy<(spec?.cost??0)||(key==='r'&&active.tier<2);
+      const cd=active?.cooldowns[key]??0;button.disabled=!active||state.blocked||cd>0||(!state.infiniteEnergy&&state.energy<(spec?.cost??0))||(key==='r'&&active.tier<2);
       button.dataset.cooldown=key==='r'&&active&&active.tier<2?'잠김':cd>0?String(Math.ceil(cd)):'';
       button.querySelector('.skill-name')!.textContent=spec?.name??'';
       button.title=spec?`${key.toUpperCase()} · ${spec.name} · 기력 ${spec.cost} · ${spec.cd}초`:'';

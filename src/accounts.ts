@@ -1,5 +1,6 @@
 import type { Game } from './game/game';
-import { BOSSES, CHAPTERS, LEVELS } from './game/campaign';
+import { BOSSES, CHAPTERS, LEVELS, SPIRIT_ASSETS, SPIRIT_NAMES } from './game/campaign';
+import { ELEMENT, type Element } from './game/config';
 import { readSave, useSaveOwner, writeSave } from './game/storage';
 
 interface Player { id:string; username:string; is_admin:boolean; blocked:boolean; created_at:string; last_seen:string; play_seconds:number; stage:number; max_stage:number }
@@ -42,12 +43,23 @@ export class Accounts {
     el('accountHome').addEventListener('click',()=>{
       void (this.testMode?Promise.resolve(this.leaveTest()):this.sync()).then(()=>{this.game.returnToTitle();this.refreshContinue();this.dialog.close();}).catch(error=>this.message(error.message));
     });
-    el('openAdmin').addEventListener('click',()=>{this.dialog.close();this.adminDialog.showModal();void this.loadAdmin();});
+    el('openAdmin').addEventListener('click',()=>{this.dialog.close();this.refreshCheats();this.adminDialog.showModal();void this.loadAdmin();});
     el('refreshAdmin').addEventListener('click',()=>{void this.loadAdmin();});
     el<HTMLFormElement>('adminSearch').addEventListener('submit',event=>{event.preventDefault();this.page=0;void this.loadAdmin();});
     el('prevPlayers').addEventListener('click',()=>{this.page=Math.max(0,this.page-1);void this.loadAdmin();});
     el('nextPlayers').addEventListener('click',()=>{if((this.page+1)*25<this.total)this.page++;void this.loadAdmin();});
     el('leaveTest').addEventListener('click',()=>this.leaveTest());
+    el('resumeTest').addEventListener('click',()=>this.adminDialog.close());
+    for(const kind of ['health','energy'] as const) {
+      el(`cheat-${kind}`).addEventListener('click',()=>{void this.applyCheat(()=>this.game.setCheat(kind,!this.game.cheats[kind]));});
+    }
+    for(const element of Object.keys(SPIRIT_NAMES) as Element[]) {
+      const button=document.createElement('button');button.type='button';button.className='spirit-cheat';button.dataset.element=element;
+      const image=new Image();image.src=`/sprites/${SPIRIT_ASSETS[element]}.png`;image.alt='';
+      const label=document.createElement('span');label.textContent=`${SPIRIT_NAMES[element]} · ${ELEMENT[element].label}`;
+      button.append(image,label);button.setAttribute('aria-label',`${ELEMENT[element].label} 정령 ${SPIRIT_NAMES[element]} 획득 / 선택`);
+      button.addEventListener('click',()=>{void this.applyCheat(()=>this.game.equipSpirit(element));});el('adminSpirits').append(button);
+    }
     el('loadCloud').addEventListener('click',()=>{if(confirm('기기 기록은 백업으로 보관하고 서버의 최신 기록을 불러올까요?')){writeSave('true','prefer-cloud');location.reload();}});
     el('backupSave').addEventListener('click',()=>{
       const backup=this.conflict?readSave():readSave('unsynced') || readSave();
@@ -63,6 +75,7 @@ export class Accounts {
       void this.api('password',{current:el<HTMLInputElement>('currentPassword').value,password:el<HTMLInputElement>('newPassword').value}).then(()=>{el<HTMLFormElement>('passwordForm').reset();this.message('비밀번호를 변경했습니다.');}).catch(error=>this.message(error.message));
     });
     this.renderStages();
+    this.refreshCheats();
     this.ready=this.api<Account>().then(account=>this.acceptAccount(account)).catch(error=>{this.status('기기 저장 · 계정 서버 연결 실패',true);this.message(error.message);}).finally(()=>{this.initialized=true;this.refreshContinue();});
     window.setInterval(()=>this.tick(),1000);
     const saveOnExit=()=>{this.lastTick=performance.now();void this.sync(true).catch(()=>undefined);};
@@ -215,16 +228,40 @@ export class Accounts {
       }
     }
   }
-  private async startTest(number:number):Promise<void> {
-    if(!this.user?.is_admin)return;
+  private async prepareTest():Promise<void> {
+    const user=this.user;
+    if(!user?.is_admin)throw new Error('관리자만 테스트할 수 있습니다.');
+    if(!this.testMode){
+      await this.sync();
+      if(this.user?.id!==user.id||!this.user.is_admin)throw new Error('관리자 계정을 다시 확인해 주세요.');
+      this.testMode=true;useSaveOwner(`${user.id}.test`);
+    }
+    el('leaveTest').hidden=false;el('resumeTest').hidden=false;
+  }
+  private refreshCheats():void {
+    for(const [kind,label] of [['health','체력'],['energy','기력']] as const) {
+      const enabled=this.game.cheats[kind];const button=el(`cheat-${kind}`);
+      button.textContent=`${label} 무한: ${enabled?'켜짐':'꺼짐'}`;button.setAttribute('aria-pressed',String(enabled));
+    }
+    const active=this.testMode?this.game.equipped[this.game.activeSpirit]?.element:null;
+    for(const button of el('adminSpirits').querySelectorAll<HTMLButtonElement>('button'))button.setAttribute('aria-pressed',String(button.dataset.element===active));
+  }
+  private async applyCheat(change:()=>void):Promise<void> {
     try{
-      if(!this.testMode){await this.sync();this.testMode=true;useSaveOwner(`${this.user.id}.test`);}
-      this.game.debugStage(number);this.adminDialog.close();el('leaveTest').hidden=false;this.status(`관리자 테스트 · 스테이지 ${number}`);
+      await this.prepareTest();
+      if(!['play','talk','embrace'].includes(this.game.mode))this.game.debugStage(this.game.stageNumber);
+      change();this.refreshCheats();this.status(`관리자 치트 테스트 · 스테이지 ${this.game.stageNumber} · 실제 기록 저장 안 함`);
+    }catch(error){el('adminMessage').textContent=(error as Error).message;}
+  }
+  private async startTest(number:number):Promise<void> {
+    try{
+      await this.prepareTest();
+      this.game.debugStage(number);this.refreshCheats();this.adminDialog.close();this.status(`관리자 테스트 · 스테이지 ${number}`);
     }catch(error){el('adminMessage').textContent=(error as Error).message;}
   }
   private leaveTest():void {
     if(!this.testMode||!this.user)return;
-    this.testMode=false;useSaveOwner(this.user.id);this.game.returnToTitle();this.refreshContinue();el('leaveTest').hidden=true;this.status('테스트 종료 · 내 기록 유지');
+    this.testMode=false;useSaveOwner(this.user.id);this.game.returnToTitle();this.refreshCheats();this.refreshContinue();el('leaveTest').hidden=true;el('resumeTest').hidden=true;this.status('테스트 종료 · 내 기록 유지');
   }
   private async loadAdmin():Promise<void> {
     if(!this.user?.is_admin||this.adminLoading)return;

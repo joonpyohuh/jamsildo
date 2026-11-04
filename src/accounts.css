@@ -21,6 +21,10 @@
 .account-message { min-height:22px; color:#edb58a!important; white-space:pre-line; }
 .account-dialog small { display:block; color:#99948e; }
 #adminDialog { width:min(1100px,calc(100% - 24px)); }
+#adminSpirits { margin:12px 0; }
+.spirit-cheat { display:flex; flex-direction:column; align-items:center; gap:4px; }
+.spirit-cheat img { width:32px; height:32px; object-fit:contain; image-rendering:pixelated; }
+.account-dialog button[aria-pressed=true] { border-color:#e0a458; color:#e0a458; background:#372b1d; }
 .admin-kpis { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; }
 .admin-kpis article { background:#1b1a1e; border:1px solid #363139; padding:14px; }
 .admin-kpis strong { display:block; color:#e0b57a; font-size:23px; font-weight:400; }

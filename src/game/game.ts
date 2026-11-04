@@ -172,6 +172,8 @@ function windowOf(room: Room): Window_ {
 
 export class Game {
   mode: Mode = 'title';
+  readonly cheats = { health: false, energy: false };
+  get stageNumber(): number { return this.stage.number; }
   private stage: Stage;
   readonly equipped: SpiritSlot[] = [];
   private readonly acquired = new Set<Element>();
@@ -881,18 +883,35 @@ export class Game {
     while(choices.length<3&&available.length)choices.push(available.splice(Math.floor(Math.random()*available.length),1)[0]!);
     this.ui.chooseSpirit(choices, this.equipped.length >= this.slotLimit, element => {
       this.room.rewarded = true;
-      this.acquired.add(element);
-      const slot = newSpirit(element);
-      if (this.equipped.length < this.slotLimit) { this.equipped.push(slot); this.activeSpirit = this.equipped.length - 1; }
-      else this.equipped[this.activeSpirit] = slot;
-      this.hasSpirit = true;
-      this.player.energy = this.player.maxEnergy;
-      this.sfx.play('spirit');
+      this.equipSpirit(element);
       this.startTalk([
         {who:'sena',face:'smile',text:`${SPIRIT_NAMES[element]}, ${ELEMENT[element].label}의 정령이야. Q/W/E로 기력을 써. 중급이 되면 R도 쓸 수 있어.`},
         {who:'sena',face:'flat',text:'Tab이나 아래 정령 아이콘으로 교체해. 정령마다 쿨타임은 따로 돌아가. 기력은 천천히 회복돼.'},
       ], () => undefined);
     });
+  }
+
+  equipSpirit(element: Element): void {
+    if (!Object.hasOwn(SPIRIT_NAMES, element)) throw new RangeError('unknown spirit');
+    const existing = this.equipped.findIndex(slot => slot.element === element);
+    if (existing >= 0) this.activeSpirit = existing;
+    else if (this.equipped.length < this.slotLimit) {
+      this.equipped.push(newSpirit(element)); this.activeSpirit = this.equipped.length - 1;
+    } else this.equipped[this.activeSpirit] = newSpirit(element);
+    this.acquired.add(element);
+    this.hasSpirit = true;
+    this.switchCd = 0;
+    this.spirit = { x: this.player.x - 12, y: this.player.y - 26, state: 'following', t: 0 };
+    this.player.energy = this.player.maxEnergy;
+    this.sfx.play('spirit');
+  }
+
+  setCheat(kind: 'health' | 'energy', enabled: boolean): void {
+    this.cheats[kind] = enabled;
+    if (enabled) {
+      if (kind === 'health') this.player.hp = this.player.maxHp;
+      else this.player.energy = this.player.maxEnergy;
+    }
   }
 
   /** 정령 슬롯: 처음부터 2칸 (한 정령만 들고 있으면 Tab이 의미가 없어서), 6스테이지부터 3칸 */
@@ -988,6 +1007,7 @@ export class Game {
   }
 
   returnToTitle(): void {
+    this.setCheat('health', false); this.setCheat('energy', false);
     document.querySelector<HTMLDialogElement>('#rewardDialog')?.close();
     this.mode = 'title'; this.opening = null; this.talk = null;
     this.ui.showCine(false); this.ui.hideTalk(); this.ui.hideBoss(); this.ui.hideForm(); this.ui.hideLine(); this.ui.showScreen('title');
@@ -1027,7 +1047,7 @@ export class Game {
     this.reverseTime = Math.max(0, this.reverseTime - dt); this.freezeCooldown = Math.max(0,this.freezeCooldown-dt); this.fixedForm = Math.max(0,this.fixedForm-dt);
     const p = this.player;
     const draining=this.zones.some(zone=>zone.stopEnergy&&zone.age>=zone.warning&&contains(zone,p.x,p.y));
-    p.energy = Math.min(p.maxEnergy, p.energy + (draining ? 0 : dt));
+    p.energy = this.cheats.energy ? p.maxEnergy : Math.min(p.maxEnergy, p.energy + (draining ? 0 : dt));
     for (const slot of this.equipped) for (const key of ['q','w','e','r'] as const) if (this.freezeCooldown <= 0) slot.cooldowns[key] = Math.max(0,slot.cooldowns[key]-dt);
     for (const queued of this.input.skillQueue.splice(0)) {
       this.aimPoint = typeof queued === 'string' ? null : {x:queued.x,y:queued.y};
@@ -1050,8 +1070,8 @@ export class Game {
     const spec = SKILLS[slot.element][key];
     if (key === 'r' && slot.tier < 2) { this.ui.say('R은 정령이 중급으로 자라면 열려.', 'flat'); return; }
     if (slot.cooldowns[key] > 0) return;
-    if (p.energy < spec.cost) { this.ui.say(`기력이 부족해. ${spec.cost}만큼 필요해.`, 'troubled'); return; }
-    p.energy -= slot.element === 'chaos' && key === 'r' ? p.energy : spec.cost;
+    if (!this.cheats.energy && p.energy < spec.cost) { this.ui.say(`기력이 부족해. ${spec.cost}만큼 필요해.`, 'troubled'); return; }
+    if (!this.cheats.energy) p.energy -= slot.element === 'chaos' && key === 'r' ? p.energy : spec.cost;
     slot.cooldowns[key] = spec.cd;
     slot.uses[spec.type] = (slot.uses[spec.type] ?? 0) + 1; slot.xp += 1;
     const tier = slot.xp >= 24 ? 3 : slot.xp >= 8 ? 2 : 1;
@@ -1069,7 +1089,7 @@ export class Game {
         this.reactionCd=10;
       }else if(elements.includes('water')&&elements.includes('light')){p.hp=Math.min(p.maxHp,p.hp+10);this.reactionCd=10;this.fx.ring(p.x,p.y,65,0.5);}
       else if(elements.includes('dark')&&elements.includes('light')){
-        p.hp=Math.max(1,p.hp-5);for(const enemy of this.activeEnemies())if(dist(p.x,p.y,enemy.x,enemy.y)<96)this.hitEnemy(enemy,20*this.runAttack,0,40,true,'dark');this.reactionCd=10;
+        if(!this.cheats.health)p.hp=Math.max(1,p.hp-5);for(const enemy of this.activeEnemies())if(dist(p.x,p.y,enemy.x,enemy.y)<96)this.hitEnemy(enemy,20*this.runAttack,0,40,true,'dark');this.reactionCd=10;
       }
     }
     if (slot.tier === 3) {
@@ -1121,7 +1141,7 @@ export class Game {
       if (key === 'w' && target && dist(p.x,p.y,target.x,target.y)<=256) { const px=p.x,py=p.y;p.x=p.tx=target.x;p.y=p.ty=target.y;target.x=px;target.y=py;p.moving=false; }
       if (key === 'e') {
         if (Math.random()<0.5) { for (const slot of this.equipped) for (const k of ['q','w','e','r'] as const) slot.cooldowns[k]=0;this.ui.center('앞면 · 모든 정령 쿨타임 초기화'); }
-        else { p.energy=0;this.ui.center('뒷면 · 기력 0'); }
+        else { if(!this.cheats.energy)p.energy=0;this.ui.center(this.cheats.energy?'뒷면 · 무한 기력 유지':'뒷면 · 기력 0'); }
       }
       if (key === 'r') { this.chaosTime=5;this.chaosTick=0; }
       sparkle(p.x, p.y - 10, 16, [glow, COLOR.white]);
@@ -1872,7 +1892,7 @@ export class Game {
 
   private hurtPlayer(sx: number, sy: number, damage=10, _skill=false): boolean {
     const p = this.player;
-    if (p.invuln > 0 || this.mode !== 'play' || this.endingT >= 0) return false;
+    if (this.cheats.health || p.invuln > 0 || this.mode !== 'play' || this.endingT >= 0) return false;
     if(p.armor>0){p.armor--;this.fx.ring(p.x,p.y,20,0.3);return false;}
     if(p.skillShield>0){
       p.skillShield=0;p.invuln=Math.max(p.invuln,0.5);
@@ -3523,7 +3543,7 @@ export class Game {
     const enemy=this.enemies.find(e=>e.boss&&!e.faced);
     const spec=enemy?.boss?BOSSES[enemy.boss.id]:null;
     this.ui.updateCombat({stage:this.stage.number,chapter:this.stage.chapter,within:this.stage.within,blocked:Boolean(p.effects.stun||p.effects.silence),
-      energy:p.energy,maxEnergy:p.maxEnergy,warmth:p.warmth,armor:p.armor,equipped:this.equipped,active:this.activeSpirit,
+      energy:p.energy,maxEnergy:p.maxEnergy,infiniteEnergy:this.cheats.energy,warmth:p.warmth,armor:p.armor,equipped:this.equipped,active:this.activeSpirit,
       mode:this.mode,slots:this.slotLimit,
       boss:enemy?.boss&&spec?{name:spec.name,hp:enemy.hp,maxHp:enemy.maxHp,phase:enemy.boss.phase,thresholds:spec.phases,
         pattern:enemy.boss.pattern,protected:enemy.boss.invulnerable||(enemy.boss.id==='door'&&enemy.boss.elapsed%8.5>=2.5),
