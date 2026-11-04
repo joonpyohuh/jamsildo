@@ -12,6 +12,45 @@ export const BOSSES: Readonly<Record<BossId, BossSpec>> = bossData;
 export const SKILLS = skillData as Record<Element, Record<SkillKey, SkillSpec>>;
 export const PATTERNS:Record<string,{warning:number;damage:number;count?:number;radius?:number;duration?:number}>=patternData;
 export const SPIRIT_NAMES: Record<Element, string> = { fire: '메르', water: '쿠이', wood: '매매', dark: '카이', light: '루나', chaos: '혼돈' };
+/** 스킬 설명 (실제 동작 기준). 마우스를 올리면 툴팁으로 보인다. */
+export const SKILL_DESC: Record<Element, Record<SkillKey, string>> = {
+  fire: {
+    q: '불덩이를 날려 맞은 자리에서 폭발한다. 주변의 그늘까지 화상.',
+    w: '바라보는 쪽으로 순간 돌진. 지나간 길의 그늘에게 피해와 화상을 주고 바닥에 불길을 남긴다. 잠깐 무적.',
+    e: '5초 동안 불을 두른다. 가까운 그늘을 계속 태우고, 때린 그늘에게 화상을 되돌려준다.',
+    r: '1초 모은 뒤 화면을 뒤덮는 대폭발. 매우 강한 피해와 화상.',
+  },
+  water: {
+    q: '크고 느린 물방울이 그늘을 꿰뚫으며 멀리 밀쳐내고 기절시킨다.',
+    w: '체력 30% 회복. 걸려 있던 상태이상을 전부 씻어낸다.',
+    e: '다음 공격 한 번을 무엇이든 막는다. 막는 순간 터지며 주변을 밀어낸다.',
+    r: '사방 12갈래 해일 물대포. 그늘을 꿰뚫으며 큰 피해를 주고 멀리 밀어낸다.',
+  },
+  wood: {
+    q: '탄을 막는 나무벽을 세운다. 벽에 닿은 그늘은 가시에 찔리고 묶인다.',
+    w: '다음 피해 한 번을 막는 껍질을 두르고 체력을 조금 회복한다.',
+    e: '앞으로 뻗는 덩굴 한 줄. 닿은 그늘을 전부 묶는다.',
+    r: '시전하는 순간 주변 그늘을 모두 묶고, 8초 동안 성역을 편다. 안에서는 체력이 차오르고 그늘은 계속 상처를 입는다.',
+  },
+  dark: {
+    q: '그림자 단도 세 자루. 맞은 그늘에 표식을 새긴다.',
+    w: '가장 가까운 그늘의 등 뒤로 숨어들어 벤다. 표식을 남기고 잠시 모습을 감춘다.',
+    e: '4초 동안 안에 있는 그늘의 눈을 멀게 한다. 공격을 못 맞춘다.',
+    r: '표식이 있는 그늘을 전부 연속으로 크게 벤다. 체력이 낮은 일반 그늘은 즉시 쓰러진다.',
+  },
+  light: {
+    q: '날아가지 않고 그 자리에서 일직선을 꿰뚫는 빛줄기.',
+    w: '즉시 체력 15% 회복, 이후 5초 동안 서서히 회복.',
+    e: '주변 그늘을 기절시키고 날아오던 탄을 모두 지운다.',
+    r: '하늘에서 빛의 기둥이 내리꽂혀 주변 그늘을 기절시킨다. 6초 동안 안에서 받는 피해는 절반, 그늘은 계속 탄다.',
+  },
+  chaos: {
+    q: '무작위 정령의 Q가 나간다.',
+    w: '가장 가까운 그늘과 자리를 바꾼다.',
+    e: '동전 던지기. 앞면은 모든 쿨타임 초기화, 뒷면은 기력 0.',
+    r: '5초 동안 무작위 스킬이 연발된다. 끝나면 3초 기절.',
+  },
+};
 export const SPIRIT_ROLES: Record<Element, string> = { fire: '폭발·화상', water: '밀어내기·회복', wood: '지형·속박', dark: '표식·처형', light: '관통·정화', chaos: '무작위' };
 export const SPIRIT_ASSETS: Record<Element, string> = { fire: 'spirit_fire_mer', water: 'spirit_water_kui', wood: 'spirit_wood_maemae', dark: 'spirit_dark_kai', light: 'spirit_light_luna', chaos: 'spirit_chaos_hidden_unnamed' };
 export const PATTERN_LABELS: Record<string,string> = {

@@ -3,6 +3,8 @@ import { Sfx } from './game/audio';
 import { Game, type InputState, type SkillKey } from './game/game';
 import { Ui } from './game/ui';
 import { loadArt } from './game/assets';
+import { SKILLS, SKILL_DESC, SPIRIT_NAMES, SPIRIT_ROLES } from './game/campaign';
+import { ELEMENT } from './game/config';
 import { Accounts } from './accounts';
 import './accounts.css';
 
@@ -450,6 +452,54 @@ must('#spiritSlots').addEventListener('click',e=>{
 });
 
 
+/* ── 스킬 설명: 마우스를 올리면 이름·기력·쿨타임·효과. 비활성(쿨타임·기력 부족)이어도 보인다. ── */
+const skillTip = must<HTMLDivElement>('#skillTip');
+let tipFor: string | null = null;
+function showTip(key: string, anchor: DOMRect): void {
+  const slot = game.equipped[game.activeSpirit];
+  if (!slot) { hideTip(); return; }
+  const k = key as SkillKey, spec = SKILLS[slot.element][k];
+  const locked = k === 'r' && slot.tier < 2;
+  const sig = `${slot.element}${k}${slot.tier}`;
+  if (tipFor !== sig) {
+    tipFor = sig;
+    must('#skillTipName').textContent = `${k.toUpperCase()} · ${spec.name}`;
+    must('#skillTipMeta').textContent = `${SPIRIT_NAMES[slot.element]} · 기력 ${spec.cost} · 재사용 ${spec.cd}초`;
+    must('#skillTipText').textContent = locked ? `${SKILL_DESC[slot.element][k]}
+
+정령이 중급으로 자라면 열린다. (스킬을 쓰며 성장)` : SKILL_DESC[slot.element][k];
+    skillTip.classList.toggle('is-locked', locked);
+    skillTip.style.borderColor = ELEMENT[slot.element].glow;
+  }
+  skillTip.hidden = false;
+  const w = skillTip.offsetWidth, h = skillTip.offsetHeight;
+  skillTip.style.left = `${Math.round(Math.max(6, Math.min(window.innerWidth - w - 6, anchor.left + anchor.width / 2 - w / 2)))}px`;
+  const above = anchor.top - h - 8;
+  skillTip.style.top = `${Math.round(above >= 6 ? above : anchor.bottom + 8)}px`;
+}
+function hideTip(): void { if (!skillTip.hidden) skillTip.hidden = true; tipFor = null; }
+document.addEventListener('pointermove', e => {
+  if (e.pointerType !== 'mouse') return;
+  // 비활성 버튼도 hit-test는 되므로 좌표로 찾는다
+  const el = document.elementFromPoint(e.clientX, e.clientY)?.closest<HTMLElement>('[data-skill], #spiritSlots button[data-spirit]');
+  if (!el || skillPad.hidden && el.dataset.skill) { hideTip(); return; }
+  if (el.dataset.skill) { showTip(el.dataset.skill, el.getBoundingClientRect()); return; }
+  const slot = game.equipped[Number(el.dataset.spirit)];
+  if (!slot) { hideTip(); return; }
+  tipFor = null;
+  must('#skillTipName').textContent = `${SPIRIT_NAMES[slot.element]} · ${ELEMENT[slot.element].label}`;
+  must('#skillTipMeta').textContent = `${slot.tier === 1 ? '하급' : slot.tier === 2 ? '중급' : '상급'} · ${SPIRIT_ROLES[slot.element]}`;
+  must('#skillTipText').textContent = `클릭하거나 Tab으로 교체. 정령마다 쿨타임은 따로 돈다.`;
+  skillTip.classList.remove('is-locked');
+  skillTip.style.borderColor = ELEMENT[slot.element].glow;
+  skillTip.hidden = false;
+  const r = el.getBoundingClientRect(), w = skillTip.offsetWidth, h = skillTip.offsetHeight;
+  skillTip.style.left = `${Math.round(Math.max(6, Math.min(window.innerWidth - w - 6, r.left)))}px`;
+  skillTip.style.top = `${Math.round(Math.max(6, r.top - h - 8))}px`;
+});
+document.addEventListener('pointerleave', hideTip);
+window.addEventListener('blur', hideTip);
+
 /* ── 개발용 관측 훅 (PDF 12번: 캔버스 결과는 상태 훅과 함께 확인) ── */
 if (location.hostname === 'localhost') (window as unknown as { __jamsildo: Game }).__jamsildo = game;
 
@@ -459,7 +509,7 @@ function frame(now: number): void {
   const dt = Math.min(0.05, (now - last) / 1000);
   last = now;
   const paused=document.hidden||settingsDialog.open||rewardDialog.open||accounts.paused;
-  if(paused || (game.mode !== 'play' && game.mode !== 'embrace')) resetInput();
+  if(paused || (game.mode !== 'play' && game.mode !== 'embrace')) { resetInput(); hideTip(); }
   if(!paused) game.update(dt);
   if (!paused && movePosition && (game.mode === 'play'||game.mode==='embrace')) {
     const p = toGame(movePosition);

@@ -31,6 +31,8 @@
 - `src/game/patterns.json`: 패턴의 기본 예고 시간, 피해와 주요 범위 / 개수.
 - `src/game/campaign.ts`: 20스테이지 배치, 장별 외형과 팔레트.
 - `public/sprites/fx`: 확장팩 시트 16장을 칸별로 자른 진화체 12종, 정령 이펙트 24종(큰/작은 크기), 몬스터 이펙트 19종. 정령 이펙트는 활성 정령 × 무기 형태의 기본 공격과 QWER에, 몬스터 이펙트는 각 몬스터의 공격 순간에 재생한다.
+- `public/anim`: **Aseprite 내보내기 형식**(PNG 시트 + JSON-array, 프레임 시간, 태그, `pivot` 슬라이스)의 애니메이션 시트 105장. 윤슬(idle·walk·attack·cast·hurt), 몬스터·보스(idle·move·attack·hurt·spawn·die), 정령·진화체(idle·cast·spawn), 이펙트(play·loop). `src/game/anim.ts`가 재생하고, 시트가 없으면 정지 그림으로 돌아간다.
+- 이 시트는 `scripts/build-anims.cjs`가 정지 그림에서 만든 기본 프레임이다(스쿼시·스트레치·점프·디더 소멸). **정식 Aseprite로 같은 id·태그 이름으로 내보내면 `public/anim/<id>.png|json`을 덮어쓰기만 하면 된다.** 태그 이름 규칙: idle/move/walk/attack/hurt/spawn/die/cast/play/loop.
 - `game_assets` 원본은 보존한다. 25종을 투명도 경계로 정리하고 게임 픽셀 크기로 낮춘 결과는 `public/sprites`에 있다. 합계 약 87KB이며 원본 대용량 PNG는 배포하지 않는다.
 - `scripts/build-assets.cjs`로 다시 만들 수 있다. 개발 서버와 Playwright가 필요하며 `PLAYWRIGHT_MODULE`로 기존 설치 경로를 지정할 수 있다.
 

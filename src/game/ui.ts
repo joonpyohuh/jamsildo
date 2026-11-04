@@ -122,8 +122,7 @@ export class Ui {
       const cd=active?.cooldowns[key]??0;button.disabled=!active||state.blocked||cd>0||(!state.infiniteEnergy&&state.energy<(spec?.cost??0))||(key==='r'&&active.tier<2);
       button.dataset.cooldown=key==='r'&&active&&active.tier<2?'잠김':cd>0?String(Math.ceil(cd)):'';
       button.querySelector('.skill-name')!.textContent=spec?.name??'';
-      button.title=spec?`${key.toUpperCase()} · ${spec.name} · 기력 ${spec.cost} · ${spec.cd}초`:'';
-      button.setAttribute('aria-label',button.title);
+      button.setAttribute('aria-label',spec?`${key.toUpperCase()} · ${spec.name} · 기력 ${spec.cost} · ${spec.cd}초`:'');
       if(active)button.style.borderColor=ELEMENT[active.element].glow;
     }
     const boss=q('#bossHud');boss.hidden=!state.boss||state.mode!=='play';
@@ -253,6 +252,24 @@ export class Ui {
     el.classList.remove('is-on');
     void el.offsetWidth;
     el.classList.add('is-on');
+  }
+
+  /* ── 스킬 호출 말풍선: 윤슬 오른쪽 위에 정령 이름 ── */
+  callSpirit(text: string, ult: boolean): void {
+    const el = document.querySelector<HTMLElement>('#callBubble');
+    if (!el) return;
+    el.textContent = text;
+    el.classList.toggle('is-ult', ult);
+    el.classList.remove('is-on');
+    void el.offsetWidth;
+    el.classList.add('is-on');
+  }
+
+  placeCall(x: number, y: number): void {
+    const el = document.querySelector<HTMLElement>('#callBubble');
+    if (!el) return;
+    el.style.left = `calc(var(--px) * ${Math.round(Math.min(x + 6, 560))})`;
+    el.style.top = `calc(var(--px) * ${Math.round(y - 24)})`;
   }
 
   /* ── 형태 이름 ── */

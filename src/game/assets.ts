@@ -1,6 +1,7 @@
 import manifest from '../../game_assets/assets_manifest.json';
 import extension from '../../game_assets/extension_manifest.json';
 import type { Sprite } from './sprites';
+import { loadAnims } from './anim';
 
 export const ART = new Map<string, Sprite>();
 
@@ -38,5 +39,6 @@ export async function loadArt(): Promise<void> {
   await Promise.all([
     ...manifest.assets.map(asset => load(asset.id, `/sprites/${asset.id}.png`)),
     ...effectIds().map(id => load(id, `/sprites/fx/${id}.png`)),
+    loadAnims(),
   ]);
 }

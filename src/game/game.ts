@@ -14,6 +14,7 @@ import { LINE_FACE, OPENING, SPEAKER_NAME, pickLine, type LineKey, type Talk } f
 import type { PxActor, PxInstance } from '../vendor/pixelfx/core/index.js';
 import { HOME, Opening, drawEntranceGlow, drawHomeRoom } from './opening';
 import { ART, MONSTER_VFX } from './assets';
+import { ANIMS } from './anim';
 import { BOSSES, CHAPTERS, PATTERNS, SKILLS, SPIRIT_ASSETS, SPIRIT_NAMES, newSpirit, type BossId, type SpiritSlot, type StatusId } from './campaign';
 import { contains, newBoss, tickStatuses, type BossState, type Statuses, type Zone } from './combat';
 
@@ -218,6 +219,10 @@ export class Game {
   private endingT = -1;
   private relic: Relic | null = null;
   private vfx: Vfx[] = [];
+  /** 동작이 바뀐 시각: 동작이 시작한 뒤 흐른 시간으로 프레임을 고른다 */
+  private animTags = new Map<number, { tag: string; start: number }>();
+  private castAt = -9;
+  private spiritCastAt = -9;
   private armorFx: PxInstance | null = null;
   private playerBodyCache: PxActor | null = null;
   private armorTick = 0;
@@ -445,6 +450,7 @@ export class Game {
     this.zones = [];
     this.events = [];
     this.vfx = [];
+    this.animTags.clear();
     this.px.clear();
     this.pending = null;
     const p = this.player;
@@ -662,6 +668,7 @@ export class Game {
     this.px.update(dt, dtReal);
     this.updateVfx(dtReal);
     this.ui.placeForm(this.player.x, this.player.y - 26);
+    this.ui.placeCall(this.player.x, this.player.y);
   }
 
   /** 처음부터 다 보여주지 않는다: 방에서는 『뭐 해. 나가.』, 첫 그늘이 보이면 공격 버튼과 『눌러. 한 번만.』 */
@@ -1081,7 +1088,10 @@ export class Game {
       this.fx.ring(p.x-p.facing*13,p.y-26,34,0.5);
     }
     this.skillPower = (slot.tier === 3 ? 1.6 : slot.tier === 2 ? 1.3 : 1) * this.runAttack;
+    this.castAt = this.clock; this.spiritCastAt = this.clock;
+    this.ui.callSpirit(SPIRIT_NAMES[slot.element] + (key === 'r' ? '!!' : '!'), key === 'r');
     this.executeSkill(slot.element,key);
+    if (key === 'r') this.ultBurst(slot.element);
     if(this.reactionCd<=0&&this.equipped.length>=2){
       const elements=this.equipped.map(s=>s.element);
       if(elements.includes('fire')&&elements.includes('wood')){
@@ -1231,7 +1241,8 @@ export class Game {
       if (key === 'r') {
         // 숲의 성역: 안에선 회복, 그늘은 느려진다
         area({x,y,life:8,effect:'heal'});
-        sparkle(x, y, 30, ['#3f9a52', '#8fdc6a', '#d8f0a0'], 70);
+        for(const enemy of this.activeEnemies())if(dist(x,y,enemy.x,enemy.y)<=limit){this.applyStatus(enemy,'root',2.5);this.hitEnemy(enemy,damage*1.5,angleTo(x,y,enemy.x,enemy.y),40,true,'wood');}
+        sparkle(x, y, 40, ['#3f9a52', '#8fdc6a', '#d8f0a0'], 90);
       }
     } else if (element === 'dark') {
       if (key === 'q') {
@@ -1295,10 +1306,24 @@ export class Game {
       if (key === 'r') {
         // 빛의 기둥: 안에선 받는 피해 절반, 그늘은 계속 탄다
         area({x,y,life:6,effect:'light'});
-        sparkle(x, y - 20, 30, ['#fff0b1', COLOR.white], 120);
+        for(const enemy of this.activeEnemies())if(dist(x,y,enemy.x,enemy.y)<=limit){this.applyStatus(enemy,'stun',1.5);this.hitEnemy(enemy,damage*2,angleTo(x,y,enemy.x,enemy.y),60,true,'light');}
+        sparkle(x, y - 20, 50, ['#fff0b1', COLOR.white], 160);
       }
     }
     this.skillVfx(element,key,angle,startX,startY,x,y);
+  }
+
+  /** 궁극기: 화면이 번쩍이고 멈칫하며 크게 흔들린다 */
+  private ultBurst(element: Element): void {
+    const p = this.player, glow = ELEMENT[element].glow;
+    this.fx.flashAmt = Math.max(this.fx.flashAmt, 0.6);
+    this.fx.shake(11);
+    this.hitstop = Math.max(this.hitstop, 0.14);
+    if (this.endingT < 0) { this.slowT = 0.3; this.timeScale = 0.3; }
+    this.punchZoom(p.x, p.y - 10, 0.08, 0.55);
+    for (let i = 0; i < 3; i++) this.fx.ring(p.x, p.y - 8, 70 + i * 50, 0.45 + i * 0.15);
+    this.fx.burst(p.x, p.y - 10, 0, 70, [glow, COLOR.white], { spread: Math.PI, speed: 280, life: 0.85, drag: 3, size: 2, glow: true });
+    this.sfx.play('hitBig');
   }
 
   /** 지금 정령 × 무기 형태의 그림 이름 */
@@ -1327,7 +1352,7 @@ export class Game {
     const p = this.player, panel = (name: string): string => `fx_${el}_${name}`;
     if (el === 'chaos') {
       const pick = `fx_chaos_${CHAOS_PANELS[Math.floor(Math.random() * CHAOS_PANELS.length)]!}`;
-      this.playVfx(pick, p.x, p.y - 10, { life: 0.7, angle: pick.endsWith('ray') ? angle : 0 });
+      this.playVfx(pick, p.x, p.y - 10, { life: key === 'r' ? 1.2 : 0.7, scale: key === 'r' ? 3.4 : 1, angle: pick.endsWith('ray') ? angle : 0 });
       return;
     }
     const mid = { x: (sx + x) / 2, y: (sy + y) / 2 - 8 };
@@ -1337,26 +1362,30 @@ export class Game {
       case 'fire_e': this.playVfx(panel('longsword'), p.x, p.y - 10, { life: 0.6, follow: true, scale: 0.8 }); break;
       case 'fire_r':
         this.after(1, () => {
-          this.playVfx(panel('longsword'), p.x, p.y - 8, { life: 0.8, scale: 2.4 });
-          for (let i = 0; i < 4; i++) this.playVfx(panel('knuckle'), p.x + Math.cos(i * TAU / 4) * 60, p.y - 8 + Math.sin(i * TAU / 4) * 50, { life: 0.6, angle: i * TAU / 4 });
+          this.playVfx(panel('longsword'), p.x, p.y - 8, { life: 1.0, scale: 4.2 });
+          for (let i = 0; i < 6; i++) this.playVfx(panel('knuckle'), p.x + Math.cos(i * TAU / 6) * 100, p.y - 8 + Math.sin(i * TAU / 6) * 80, { life: 0.8, angle: i * TAU / 6, scale: 1.8 });
+          this.fx.shake(12); this.fx.flashAmt = Math.max(this.fx.flashAmt, 0.7);
         });
         break;
       case 'water_q': this.playVfx(panel('dagger') + '_sm', sx + Math.cos(angle) * 18, sy - 9 + Math.sin(angle) * 18, { life: 0.2, angle }); break;
       case 'water_w': this.playVfx(panel('longsword'), p.x, p.y - 12, { life: 0.6, rise: 18, scale: 0.8 }); break;
       case 'water_e': this.playVfx(panel('knuckle') + '_sm', p.x, p.y - 10, { life: 0.4, angle }); break;
-      case 'water_r': for (let i = 0; i < 4; i++) this.playVfx(panel('longsword'), p.x + Math.cos(i * TAU / 4) * 50, p.y - 8 + Math.sin(i * TAU / 4) * 40, { life: 0.6 }); break;
+      case 'water_r':
+        this.playVfx(panel('longsword'), p.x, p.y - 10, { life: 1.0, scale: 3.6 });
+        for (let i = 0; i < 6; i++) this.playVfx(panel('longsword'), p.x + Math.cos(i * TAU / 6) * 110, p.y - 8 + Math.sin(i * TAU / 6) * 90, { life: 0.9, scale: 1.9 });
+        break;
       case 'wood_q': this.playVfx(panel('knuckle'), x, y - 6, { life: 0.5, scale: 0.8 }); break;
       case 'wood_w': this.playVfx(panel('knuckle') + '_sm', p.x, p.y - 10, { life: 0.6, follow: true }); break;
       case 'wood_e': this.playVfx(panel('bow'), sx + Math.cos(angle) * 64, sy + Math.sin(angle) * 64, { life: 0.4, angle, scale: 1.3 }); if (x !== sx || y !== sy) this.playVfx(panel('dagger'), x, y - 6, { life: 0.8, scale: 0.7 }); break;
-      case 'wood_r': this.playVfx(panel('longsword'), x, y - 12, { life: 1.4, scale: 1.8 }); break;
+      case 'wood_r': this.playVfx(panel('longsword'), x, y - 14, { life: 1.6, scale: 3.6 }); this.playVfx(panel('dagger'), x, y - 6, { life: 1.2, scale: 3 }); break;
       case 'dark_q': this.playVfx(panel('dagger') + '_sm', sx + Math.cos(angle) * 18, sy - 9 + Math.sin(angle) * 18, { life: 0.2, angle }); break;
       case 'dark_w': this.playVfx(panel('dagger'), sx, sy - 8, { life: 0.35 }); this.playVfx(panel('dagger'), p.x, p.y - 8, { life: 0.35 }); break;
       case 'dark_e': this.playVfx(panel('longsword'), x, y - 8, { life: 1.2, scale: 1.8, alpha: 0.85 }); break;
-      case 'dark_r': for (const e of this.activeEnemies()) if (e.effects.mark) this.playVfx(panel('knuckle'), e.x, e.y - 10, { life: 0.6, scale: 0.8 }); break;
+      case 'dark_r': this.playVfx(panel('longsword'), p.x, p.y - 8, { life: 1.1, scale: 3.8, alpha: 0.9 }); for (const e of this.activeEnemies()) if (e.effects.mark) this.playVfx(panel('knuckle'), e.x, e.y - 10, { life: 0.7, scale: 1.7 }); break;
       case 'light_q': this.playVfx(panel('bow'), sx + Math.cos(angle) * 56, sy - 6 + Math.sin(angle) * 56, { life: 0.28, angle, scale: 1.2 }); break;
       case 'light_w': this.playVfx(panel('knuckle'), p.x, p.y - 12, { life: 0.8, follow: true, rise: 8, scale: 0.8 }); break;
       case 'light_e': this.playVfx(panel('knuckle'), p.x, p.y - 8, { life: 0.4, scale: 2 }); break;
-      case 'light_r': this.playVfx(panel('longsword'), x, y - 34, { life: 1.4, scale: 1.2 }); break;
+      case 'light_r': this.playVfx(panel('longsword'), x, y - 60, { life: 1.6, scale: 2.6 }); this.playVfx(panel('knuckle'), x, y - 6, { life: 1.2, scale: 2.4 }); break;
     }
   }
 
@@ -1372,6 +1401,18 @@ export class Game {
   private drawVfx(ox: number, oy: number): void {
     const ctx = this.ctx;
     for (const v of this.vfx) {
+      const sheet = ANIMS.get(v.id);
+      if (sheet) {
+        // Aseprite 시트: 나타남 → 정점 → 디더로 사라짐이 프레임에 들어 있다
+        const at = sheet.atProgress('play', v.t / v.life);
+        if (!at) continue;
+        ctx.save();
+        ctx.translate(Math.round(v.x + ox), Math.round(v.y + oy - v.rise * (v.t / v.life)));
+        if (v.angle) ctx.rotate(v.angle);
+        sheet.draw(ctx, at.frame, 0, 0, { sx: v.scale, sy: v.scale, alpha: v.alpha });
+        ctx.restore();
+        continue;
+      }
       const spr = ART.get(v.id);
       if (!spr) continue;
       const k = v.t / v.life, pop = Math.min(1, v.t / 0.07);
@@ -3151,6 +3192,13 @@ export class Game {
     if (e.spawnT > 0) {
       const k = 1 - e.spawnT / e.spawnMax;
       pixelEllipse(this.ctx, e.x, e.y + e.r * 0.6, e.r * 1.3 * k, 3, COLOR.ink);
+      const spawnSheet = ANIMS.get(this.spriteIdOf(e) ?? '');
+      const spawnAt = spawnSheet?.atProgress('spawn', k);
+      if (spawnSheet && spawnAt) {
+        const sz = e.tag === 'blanket' || e.tag === 'decoy' ? 0.5 : e.boss && !BOSSES[e.boss.id].asset ? 1.8 : 1;
+        spawnSheet.draw(this.ctx, spawnAt.frame, e.x, foot, { sx: sz * (e.boss?.scale ?? 1), sy: sz });
+        return;
+      }
       if (k > 0.35) this.blit(base, e.x, foot, { sy: (k - 0.35) / 0.65, alpha: k });
       return;
     }
@@ -3162,11 +3210,20 @@ export class Game {
         return;
       }
       // 몸은 바닥으로 가라앉고, 옅은 사본(pixelfx soul-rise)이 위로 빠져나간다
+      const dieSheet = ANIMS.get(this.spriteIdOf(e) ?? '');
+      const dieAt = dieSheet?.atProgress('die', k);
+      if (dieSheet && dieAt) {
+        const sz = e.tag === 'blanket' || e.tag === 'decoy' ? 0.5 : e.boss && !BOSSES[e.boss.id].asset ? 1.8 : 1;
+        dieSheet.draw(this.ctx, dieAt.frame, e.x, foot, { sx: sz, sy: sz });
+        return;
+      }
       this.blit(base, e.x, foot, { alpha: 1 - k, sy: 1 - k * 0.6, sx: 1 + k * 0.2 });
       return;
     }
 
     const size=e.tag==='blanket'||e.tag==='decoy'?0.5:e.boss&&!BOSSES[e.boss.id].asset?1.8:1;
+    const sheet = ANIMS.get(this.spriteIdOf(e) ?? '');
+    if (sheet) { this.drawEnemySheet(e, sheet, base, size, foot); return; }
     let sxs = size*(1 + e.squash * 0.24 - breathe)*(e.boss?.scale??1);
     let sys = size*(1 - e.squash * 0.2 + breathe);
     let ox = 0;
@@ -3223,7 +3280,17 @@ export class Game {
     const bob = frame === 1 || frame === 3 ? -1 : 0;
     const behind = Math.sin(this.weaponAngle()) < -0.35;
     if (behind) this.drawWeapon();
-    this.blit(p.hurtT > 0 ? tint(spr, COLOR.white) : spr, p.x, foot + bob, { flip: p.facing < 0 });
+    const sheet = ANIMS.get('yunseul');
+    let at: ReturnType<NonNullable<typeof sheet>['at']> = null;
+    if (sheet) {
+      if (p.hurtT > 0) at = sheet.at('hurt', 0.14 - p.hurtT);
+      else if (p.swingT > 0) at = sheet.atProgress('attack', 1 - p.swingT / p.swingDur);
+      else if (this.clock - this.castAt < sheet.length('cast')) at = sheet.at('cast', this.clock - this.castAt);
+      else if (p.moving && p.lungeT <= 0) at = sheet.at('walk', p.walkT);
+      else at = sheet.at('idle', this.clock);
+    }
+    if (sheet && at) sheet.draw(this.ctx, at.frame, p.x, foot, { flip: p.facing < 0 });
+    else this.blit(p.hurtT > 0 ? tint(spr, COLOR.white) : spr, p.x, foot + bob, { flip: p.facing < 0 });
     if (!behind) this.drawWeapon();
   }
 
@@ -3348,6 +3415,50 @@ export class Game {
   }
 
   /** 그늘 종류별 스프라이트. 보스는 스테이지 속성을 따른다. */
+  /** 이 적의 그림(시트) id. 코드로 그린 대체 그림이면 null. */
+  private spriteIdOf(e: Enemy): string | null {
+    if (e.tag === 'chair') return null;
+    if (e.spriteId && ART.has(e.spriteId)) return e.spriteId;
+    if (e.kind !== 'alarm') {
+      const asset = CHAPTERS[this.stage.chapter - 1]!.enemies[e.kind === 'bother' ? 0 : e.kind === 'heavy' ? 1 : 2];
+      if (ART.has(asset)) return asset;
+    }
+    return null;
+  }
+
+  /** 같은 동작이 이어지는 동안 흐른 시간. 동작이 바뀌면 0부터. */
+  private animTime(key: number, tag: string): number {
+    const cur = this.animTags.get(key);
+    if (!cur || cur.tag !== tag) { this.animTags.set(key, { tag, start: this.clock }); return 0; }
+    return this.clock - cur.start;
+  }
+
+  /** 상태에 맞는 시트 동작(idle/move/attack/hurt)을 재생한다 */
+  private drawEnemySheet(e: Enemy, sheet: NonNullable<ReturnType<typeof ANIMS.get>>, base: Sprite, size: number, foot: number): void {
+    const attacking = (e.kind === 'heavy' && (e.state === 'wind' || e.state === 'slam')) || (e.kind === 'gloom' && e.state === 'aim')
+      || (e.boss !== undefined && ['bossAct', 'charge', 'chargeTele', 'ring', 'ringTele', 'snoozeTele'].includes(e.state));
+    let tag = e.flash > 0 || e.effects.stun || e.state === 'stun' ? 'hurt' : attacking ? 'attack' : e.state === 'move' || e.state === 'chase' ? 'move' : 'idle';
+    let t = this.animTime(e.id, tag);
+    let at = sheet.at(tag, t + (tag === 'idle' ? e.id * 0.13 : 0));
+    // 한 번 재생하는 동작이 끝나면 숨 쉬는 자세로 돌아간다 (기절 중 피격 자세는 마지막 프레임 유지)
+    if (at?.done && tag === 'attack') { tag = 'idle'; at = sheet.at('idle', t + e.id * 0.13); }
+    if (!at) return;
+    let ox = 0;
+    if (e.kind === 'heavy' && e.state === 'wind') ox = Math.round(Math.sin(this.clock * 60));
+    if (e.kind === 'alarm' && (e.state === 'ringTele' || e.state === 'snoozeTele' || e.state === 'ring')) ox = Math.round(rand(-1.5, 1.5));
+    const flip = e.kind !== 'alarm' && this.player.x < e.x;
+    const sx = size * (e.boss?.scale ?? 1), sy = size;
+    const alpha = e.tag === 'decoy' ? (Math.floor(this.clock * 4) % 2 ? 0.35 : 0.9) : e.stealth ? 0.25 : e.boss?.invulnerable ? 0.55 : 1;
+    sheet.draw(this.ctx, at.frame, e.x + ox, foot, { sx, sy, flip, alpha });
+    if (e.boss?.id === 'door') { this.ctx.fillStyle = '#ffe7a0'; this.ctx.fillRect(Math.round(e.x + 8), Math.round(foot - base.height / 2), 2, 2); }
+    if (e.boss && e.state === 'bossAct' && this.zones.some(z => z.source === e.id && z.age < z.warning) && Math.floor(this.clock * 8) % 2 === 0) {
+      sheet.draw(this.ctx, at.frame, e.x + ox, foot, { sx, sy, flip, alpha: 0.22, tint: COLOR.pale });
+    }
+    if (e.effects.stun) { plot(this.ctx, e.x - 4, foot - base.height - 3, COLOR.fireHot); plot(this.ctx, e.x + 4, foot - base.height - 5, COLOR.fireHot); }
+    const telegraph = (e.kind === 'gloom' && e.state === 'aim') || (e.kind === 'alarm' && e.state === 'chargeTele') || (e.kind === 'heavy' && e.state === 'wind');
+    if (telegraph && Math.floor(this.clock * 14) % 2 === 0) sheet.draw(this.ctx, at.frame, e.x + ox, foot, { sx, sy, flip, alpha: 0.35, tint: COLOR.pale });
+  }
+
   private spriteOf(e: Enemy): Sprite {
     if(e.tag==='chair')return SPRITES.chair;
     if(e.spriteId&&ART.has(e.spriteId))return ART.get(e.spriteId)!;
@@ -3411,6 +3522,19 @@ export class Game {
     const tier=s.state==='following'?(this.equipped[this.activeSpirit]?.tier??1):1;
     const evolved=tier>=3?ART.get(`evo_${element}_upper`):tier===2?ART.get(`evo_${element}_medium`):undefined;
     const spr = evolved??ART.get(SPIRIT_ASSETS[element])??SPRITES.fireSpirit[frame];
+    const sheetId = tier >= 3 ? `evo_${element}_upper` : tier === 2 ? `evo_${element}_medium` : SPIRIT_ASSETS[element];
+    const sheet = ANIMS.get(sheetId);
+    if (sheet) {
+      const casting = this.clock - this.spiritCastAt < sheet.length('cast');
+      const tagName = casting ? 'cast' : s.state === 'waiting' && s.t < sheet.length('spawn') ? 'spawn' : 'idle';
+      const at = tagName === 'cast' ? sheet.at('cast', this.clock - this.spiritCastAt) : tagName === 'spawn' ? sheet.at('spawn', s.t) : sheet.at('idle', this.clock + 0.3);
+      if (at) {
+        const sbob = s.state === 'waiting' ? Math.sin(this.clock * 2.5) * 2 : 0;
+        if (s.state === 'waiting') pixelEllipse(this.ctx, s.x, s.y + 20, 5, 1.5, COLOR.shadow);
+        sheet.draw(this.ctx, at.frame, s.x, s.y + 8 + sbob, { flip: s.state === 'following' && this.player.facing < 0 });
+        return;
+      }
+    }
     const bob = s.state === 'waiting' ? Math.sin(this.clock * 2.5) * 2 : 0;
     const appear = s.state === 'waiting' ? clamp(s.t / 0.8, 0, 1) : 1;
     if (s.state === 'waiting') pixelEllipse(this.ctx, s.x, s.y + 20, 5 * appear, 1.5, COLOR.shadow);
@@ -3420,6 +3544,16 @@ export class Game {
 
   private drawBullet(b: Bullet): void {
     const ctx = this.ctx;
+    const loop = b.art ? ANIMS.get(b.art) : undefined;
+    const loopFrame = loop?.at('loop', this.clock + b.x * 0.01);
+    if (loop && loopFrame) {
+      ctx.save();
+      ctx.translate(Math.round(b.x), Math.round(b.y));
+      ctx.rotate(Math.atan2(b.vy, b.vx));
+      loop.draw(ctx, loopFrame.frame, -Math.round(loop.cellW * 0.16 * (b.artScale ?? 1)), 0, { sx: b.artScale ?? 1, sy: b.artScale ?? 1 });
+      ctx.restore();
+      return;
+    }
     const art = b.art ? ART.get(b.art) : undefined;
     if (art) {
       ctx.save();
