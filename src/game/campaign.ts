@@ -18,13 +18,13 @@ export const SKILL_DESC: Record<Element, Record<SkillKey, string>> = {
     q: '불덩이를 날려 맞은 자리에서 폭발한다. 주변의 그늘까지 화상.',
     w: '바라보는 쪽으로 순간 돌진. 지나간 길의 그늘에게 피해와 화상을 주고 바닥에 불길을 남긴다. 잠깐 무적.',
     e: '5초 동안 불을 두른다. 가까운 그늘을 계속 태우고, 때린 그늘에게 화상을 되돌려준다.',
-    r: '1초 모은 뒤 화면을 뒤덮는 대폭발. 매우 강한 피해와 화상.',
+    r: '조준한 쪽으로 거대한 불기둥을 쏜다. 닿은 그늘을 모두 태우고 탄도 지운다.',
   },
   water: {
     q: '크고 느린 물방울이 그늘을 꿰뚫으며 멀리 밀쳐내고 기절시킨다.',
     w: '체력 30% 회복. 걸려 있던 상태이상을 전부 씻어낸다.',
     e: '다음 공격 한 번을 무엇이든 막는다. 막는 순간 터지며 주변을 밀어낸다.',
-    r: '사방 12갈래 해일 물대포. 그늘을 꿰뚫으며 큰 피해를 주고 멀리 밀어낸다.',
+    r: '방을 가로지르는 거대한 파도. 그늘을 전부 쓸어 밀어내고 탄도 씻어낸다.',
   },
   wood: {
     q: '탄을 막는 나무벽을 세운다. 벽에 닿은 그늘은 가시에 찔리고 묶인다.',
@@ -36,13 +36,13 @@ export const SKILL_DESC: Record<Element, Record<SkillKey, string>> = {
     q: '그림자 단도 세 자루. 맞은 그늘에 표식을 새긴다.',
     w: '가장 가까운 그늘의 등 뒤로 숨어들어 벤다. 표식을 남기고 잠시 모습을 감춘다.',
     e: '4초 동안 안에 있는 그늘의 눈을 멀게 한다. 공격을 못 맞춘다.',
-    r: '표식이 있는 그늘을 전부 연속으로 크게 벤다. 체력이 낮은 일반 그늘은 즉시 쓰러진다.',
+    r: '리퍼를 불러 낫을 휘두른다. 표식이 있는 그늘을 전부 크게 베고, 체력이 낮은 일반 그늘은 즉시 쓰러진다.',
   },
   light: {
     q: '날아가지 않고 그 자리에서 일직선을 꿰뚫는 빛줄기.',
     w: '즉시 체력 15% 회복, 이후 5초 동안 서서히 회복.',
     e: '주변 그늘을 기절시키고 날아오던 탄을 모두 지운다.',
-    r: '하늘에서 빛의 기둥이 내리꽂혀 주변 그늘을 기절시킨다. 6초 동안 안에서 받는 피해는 절반, 그늘은 계속 탄다.',
+    r: '하늘에서 빛의 검이 내리꽂혀 주변 그늘을 기절시킨다. 6초 동안 그 자리에서 받는 피해는 절반, 그늘은 계속 탄다.',
   },
   chaos: {
     q: '무작위 정령의 Q가 나간다.',
@@ -50,6 +50,21 @@ export const SKILL_DESC: Record<Element, Record<SkillKey, string>> = {
     e: '동전 던지기. 앞면은 모든 쿨타임 초기화, 뒷면은 기력 0.',
     r: '5초 동안 무작위 스킬이 연발된다. 끝나면 3초 기절.',
   },
+};
+/** 합동 궁극기: 짝이 되는 두 정령이 함께 있고, 둘 다 중급 이상에 R이 준비됐을 때 쓴다 */
+export interface ComboSpec { name: string; pair: readonly [Element, Element]; cost: number; damage: number; text: string }
+export const COMBOS: readonly ComboSpec[] = [
+  { name: '증기 나선', pair: ['fire', 'water'], cost: 40, damage: 220, text: '메르와 쿠이가 불과 물을 꼬아 쏜다. 앞의 그늘을 세 번 꿰뚫고 불태운다.' },
+  { name: '일식 베기', pair: ['light', 'dark'], cost: 40, damage: 240, text: '루나와 카이가 일식을 만들어 벤다. 주변 그늘을 기절시키고 눈을 멀게 하며, 화면의 탄을 모두 지운다.' },
+];
+export type ItemId = 'meal' | 'thermos' | 'shoes' | 'crystal' | 'heart';
+export interface ItemSpec { name: string; effect: string; /** 있으면 상점 품목 */ cost?: number; /** 한 판에 가질 수 있는 수 */ limit?: number }
+export const ITEMS: Readonly<Record<ItemId, ItemSpec>> = {
+  meal: { name: '선식 한 컵', effect: 'HP +25 · 공격력 +15%', cost: 8 },
+  thermos: { name: '식지 않는 보온병', effect: '기력 회복 속도 +25%', cost: 12, limit: 5 },
+  shoes: { name: '끈 묶은 운동화', effect: '공격력 +12% · 최대 기력 +3' },
+  crystal: { name: '기력의 결정', effect: '최대 기력 +10' },
+  heart: { name: '심장 조각', effect: '최대 체력 +20' },
 };
 /** 일반 그늘 이름: 챕터 스프라이트 → 이름. 스프라이트가 없으면 종류 이름으로 돌아간다. */
 export const ENEMY_NAMES: Record<string, string> = {

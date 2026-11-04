@@ -8,14 +8,15 @@ import { FORMS, SENSE, chooseForm, type FormId } from './forms';
 import { DIRS, DIR_KEYS, generateStage, restoreStage, makeHomeRoom, neighborOf, type Dir, type EnemyKind, type Room, type Stage } from './stage';
 import { readSave, writeSave } from './storage';
 import { PROP_IDS, SPRITES, glow, tint, type Sprite } from './sprites';
-import type { EnemyInfo, Ui } from './ui';
+import type { ComboHud, EnemyInfo, Inventory, PickupPrompt, Ui } from './ui';
+import { ECLIPSE_BURST, ECLIPSE_REACH, REAPER_SWING, SUPERS, SWORD_DROP, WAVE_SPEED, drawCutIn, drawSuperFx, type Cut, type SuperFx, type SuperKind } from './supers';
 import { PixelLayer, actorFromSprite } from './pixelfx';
 import { LINE_FACE, OPENING, SPEAKER_NAME, pickLine, type LineKey, type Talk } from './lines';
 import type { PxActor, PxInstance } from '../vendor/pixelfx/core/index.js';
 import { HOME, Opening, drawEntranceGlow, drawHomeRoom } from './opening';
 import { ART, MONSTER_VFX } from './assets';
 import { ANIMS } from './anim';
-import { BOSSES, CHAPTERS, ENEMY_DESC, ENEMY_NAMES, PATTERNS, PATTERN_LABELS, SKILLS, STATUS_LABELS, SPIRIT_ASSETS, SPIRIT_NAMES, newSpirit, type BossId, type SpiritSlot, type StatusId } from './campaign';
+import { BOSSES, CHAPTERS, COMBOS, ENEMY_DESC, ENEMY_NAMES, ITEMS, PATTERNS, PATTERN_LABELS, SKILLS, STATUS_LABELS, SPIRIT_ASSETS, SPIRIT_NAMES, newSpirit, type BossId, type ComboSpec, type ItemId, type SpiritSlot, type StatusId } from './campaign';
 import { contains, newBoss, tickStatuses, type BossState, type Statuses, type Zone } from './combat';
 
 export type SkillKey = 'q' | 'w' | 'e' | 'r';
@@ -39,6 +40,10 @@ const PLAYER_HP = 100;
 const MAX_HP_CAP = 160;
 const MAX_ENERGY_CAP = 130;
 const INVULN = 1.1;
+/** 바닥 아이템을 Space로 주울 수 있는 거리 */
+const PICKUP_RANGE = 30;
+/** 튀어 오른 아이템이 내려앉는 시간. 그 전에는 줍지 못한다. */
+const ITEM_LAND = 0.7;
 const SLIDE_TIME = 0.36;
 const TYPE_SPEED = 32;
 const SPIRIT_BRAZIERS = [
@@ -127,7 +132,7 @@ const WEAPON_PANEL: Readonly<Record<FormId, string>> = { dagger: 'dagger', sword
 interface Slide { from: Room; to: Room; dir: Dir; t: number }
 interface Relic { x: number; y: number; t: number }
 /** 스테이지를 깰 때마다 하나: 기력의 결정(최대 기력) 또는 심장 조각(최대 체력) */
-interface Item { x: number; y: number; vx: number; vy: number; t: number; kind: 'energy' | 'heart' }
+interface Item { x: number; y: number; vx: number; vy: number; t: number; kind: ItemId }
 interface Ghost { x: number; foot: number; frame: number; flip: boolean; life: number }
 interface Zoom { amount: number; life: number; max: number; x: number; y: number }
 interface Window_ { x: number; w: number }
@@ -201,6 +206,14 @@ export class Game {
   private attackOrder: Enemy | null = null;
   /** 좌클릭으로 고른 적: 정보 패널에 보여준다 */
   private inspected: Enemy | null = null;
+  /** 초필살기 컷인: 이 동안 세상이 멈춘다 */
+  private cut: Cut | null = null;
+  private supers: SuperFx[] = [];
+  /** 세나가 사람 모습으로 윤슬 곁에 서 있는 남은 시간 */
+  private senaShowT = 0;
+  private comboHinted = false;
+  /** 이번 판에 얻은 아이템 수 */
+  private items: Partial<Record<ItemId, number>> = {};
   private bullets: Bullet[] = [];
   private orbs: Orb[] = [];
   private ghosts: Ghost[] = [];
@@ -392,11 +405,14 @@ export class Game {
     this.runAttack = 1;
     this.zones = [];
     this.events = [];
+    this.clearSupers();
+    this.comboHinted = false;
     this.chaosTime = this.reverseTime = this.freezeCooldown = this.fixedForm = 0;
     this.switchCd=this.chaosTick=this.reactionCd=this.playerBurnTick=0;this.aimPoint=null;
     this.embracing = null;
     this.relic = null;
     this.item = null;
+    this.items = {};
     this.lineCd = 0;
     this.formsSpoken.clear();
     this.lowSaid = false;
@@ -447,6 +463,7 @@ export class Game {
     if (room.kind !== 'home') this.visitedRooms.add(room);
     this.ui.updateMap(room.kind === 'home' ? [room] : [...this.visitedRooms], room);
     this.enemies = [];
+    this.item = null;
     this.bullets = [];
     this.orbs = [];
     this.ghosts = [];
@@ -454,6 +471,7 @@ export class Game {
     this.zones = [];
     this.events = [];
     this.vfx = [];
+    this.clearSupers();
     this.animTags.clear();
     this.px.clear();
     this.pending = null;
@@ -658,6 +676,7 @@ export class Game {
       return;
     }
     if (this.mode === 'embrace') { this.updatePlayer(dtReal); this.fx.update(dtReal); return; }
+    if (this.cut) { this.updateCut(dtReal); return; }
 
     if (this.hitstop > 0) {
       this.hitstop -= dtReal;
@@ -683,6 +702,8 @@ export class Game {
       this.updateOrbs(dt);
       this.updateSpirit(dt);
       this.updateZones(dt);
+      this.updateSupers(dt);
+      this.senaShowT = Math.max(0, this.senaShowT - dtReal);
       this.checkClear();
       this.updateTutorial(dt);
       if (this.mode === 'play') this.checkExit();
@@ -701,15 +722,14 @@ export class Game {
     if (this.endingT >= 0) {
       this.endingT += dtReal;
       if (this.relic) this.relic.t += dtReal;
-      this.updateItem(dtReal);
-      // 클리어 화면으로 넘어갈 때까지 못 주운 아이템은 자동으로 챙긴다 (보상은 반드시 하나)
-      if (this.endingT > 3.4 && this.mode === 'play') {
-        if (this.item) this.takeItem(this.item);
+      // 바닥에 아이템이 남아 있으면 주울 때까지 기다린다 (보상은 반드시 하나)
+      if (this.endingT > 3.4 && this.mode === 'play' && !this.item) {
         this.mode = 'clear';
         this.showScreen('clear');
       }
     }
 
+    if (this.mode === 'play') this.updateItem(dtReal);
     this.fx.update(dt);
     this.px.update(dt, dtReal);
     this.updateVfx(dtReal);
@@ -888,7 +908,11 @@ export class Game {
     this.room.cleared = true;
     this.player.hp = Math.min(this.player.maxHp,this.player.hp+3);
     this.player.energy = Math.min(this.player.maxEnergy,this.player.energy+4);
-    if(this.room.kind==='hard'&&!this.room.rewarded){this.room.rewarded=true;this.runAttack+=0.12;this.player.maxEnergy=Math.min(MAX_ENERGY_CAP,this.player.maxEnergy+3);this.ui.center('끈 묶은 운동화 · 공격력과 기력 성장');}
+    if (this.room.kind === 'hard' && !this.room.rewarded) {
+      this.placeRoomItem();
+      this.fx.ring(CX, CY, 34, 0.5);
+      this.ui.say('방 한가운데에 뭔가 떠올랐어.', 'smile');
+    }
     if (this.room.kind === 'normal') this.say('clear', true);
     this.sfx.play('open');
     if (this.room.kind === 'spirit' && this.spirit?.state === 'hidden') {
@@ -924,24 +948,28 @@ export class Game {
     if (!s) return;
     s.state = 'following';
     const pool = ([...IMPLEMENTED_ELEMENTS, ...(this.stage.number >= 11 ? ['chaos' as const] : [])]).filter(el => !this.acquired.has(el));
-    if (pool.length === 0) {
-      const slot = this.equipped[this.activeSpirit];
-      if (slot) { slot.xp += 8; slot.tier = Math.min(3, slot.tier + 1); }
-      this.player.energy = this.player.maxEnergy;
-      this.room.rewarded = true;
-      this.ui.say('함께 자란 만큼, 정령이 더 강해졌어.', 'smile');
-      return;
-    }
+    if (pool.length === 0) { this.growActiveSpirit(); return; }
     const choices:Element[]=[],available=[...pool];
     while(choices.length<3&&available.length)choices.push(available.splice(Math.floor(Math.random()*available.length),1)[0]!);
-    this.ui.chooseSpirit(choices, this.equipped.length >= this.slotLimit, element => {
+    const active = this.equipped[this.activeSpirit];
+    const replacing = active && this.equipped.length >= this.slotLimit ? SPIRIT_NAMES[active.element] : null;
+    this.ui.chooseSpirit(choices, replacing, element => {
       this.room.rewarded = true;
       this.equipSpirit(element);
       this.startTalk([
         {who:'sena',face:'smile',text:`${SPIRIT_NAMES[element]}, ${ELEMENT[element].label}의 정령이야. Q/W/E로 기력을 써. 중급이 되면 R도 쓸 수 있어.`},
         {who:'sena',face:'flat',text:'Tab이나 아래 정령 아이콘으로 교체해. 정령마다 쿨타임은 따로 돌아가. 기력은 천천히 회복돼.'},
       ], () => undefined);
-    });
+    }, () => this.growActiveSpirit());
+  }
+
+  /** 새 정령을 받지 않을 때의 보상: 지금 정령이 한 단계 자란다 */
+  private growActiveSpirit(): void {
+    const slot = this.equipped[this.activeSpirit];
+    if (slot) { slot.xp += 8; slot.tier = Math.min(3, slot.tier + 1); }
+    this.player.energy = this.player.maxEnergy;
+    this.room.rewarded = true;
+    this.ui.say('함께 자란 만큼, 정령이 더 강해졌어.', 'smile');
   }
 
   equipSpirit(element: Element): void {
@@ -967,8 +995,8 @@ export class Game {
     }
   }
 
-  /** 정령 슬롯: 처음부터 2칸 (한 정령만 들고 있으면 Tab이 의미가 없어서), 6스테이지부터 3칸 */
-  get slotLimit(): number { return this.stage.number >= 6 ? 3 : 2; }
+  /** 정령 슬롯: 처음부터 3칸. 먹은 정령이 말없이 사라지지 않게 스테이지와 무관하다. */
+  get slotLimit(): number { return 3; }
 
   cycleSpirit(index = (this.activeSpirit + 1) % Math.max(1, this.equipped.length)): void {
     if (this.mode !== 'play') return;
@@ -1011,7 +1039,7 @@ export class Game {
   saveCheckpoint(): boolean {
     if (this.mode === 'title' || this.mode === 'opening' || this.mode === 'slide') return true;
     // ponytail: 전투 도중 종료하면 현재 방의 적은 다시 생성한다. 전투 중 객체·타이머 직렬화가 필요할 때 확장한다.
-    const checkpoint = JSON.stringify({version:2,stage:this.stage.number,hp:this.player.hp,maxHp:this.player.maxHp,maxEnergy:this.player.maxEnergy,energy:this.player.energy,armor:this.player.armor,attack:this.runAttack,warmth:this.player.warmth,equipped:this.equipped,active:this.activeSpirit,acquired:[...this.acquired],rooms:this.stage.rooms.map(room=>({...room,marks:[]})),element:this.stage.element,room:[this.room.gx,this.room.gy],visited:[...this.visitedRooms].map(room=>[room.gx,room.gy]),attackUnlocked:this.attackUnlocked,cleared:this.mode==='clear'||this.endingT>=0,down:this.mode==='down'});
+    const checkpoint = JSON.stringify({version:2,stage:this.stage.number,hp:this.player.hp,maxHp:this.player.maxHp,maxEnergy:this.player.maxEnergy,energy:this.player.energy,armor:this.player.armor,attack:this.runAttack,warmth:this.player.warmth,items:this.items,equipped:this.equipped,active:this.activeSpirit,acquired:[...this.acquired],rooms:this.stage.rooms.map(room=>({...room,marks:[]})),element:this.stage.element,room:[this.room.gx,this.room.gy],visited:[...this.visitedRooms].map(room=>[room.gx,room.gy]),attackUnlocked:this.attackUnlocked,cleared:this.mode==='clear'||this.endingT>=0,down:this.mode==='down'});
     if (!this.saveEnabled) { this.sessionCheckpoint = checkpoint; return true; }
     writeSave(String(Math.max(this.player.maxEnergy, Number(readSave('max-energy')) || 30)), 'max-energy');
     return writeSave(checkpoint);
@@ -1028,6 +1056,7 @@ export class Game {
       const restored = data.version === 2 ? restoreStage(data.stage, data.rooms, data.element) : generateStage(data.stage);
       this.startRun();
       this.stage = restored;
+      for (const id of Object.keys(ITEMS) as ItemId[]) { const count = clamp(Math.floor(Number(data.items?.[id]) || 0), 0, 99); if (count) this.items[id] = count; }
       this.visitedRooms.clear(); this.roomCache.clear();
       this.player.maxEnergy = clamp(Number(data.maxEnergy)||30+(data.stage-1)*4,30,MAX_ENERGY_CAP); this.player.energy = this.player.maxEnergy;
       this.player.maxHp = clamp(Math.round(Number(data.maxHp) || PLAYER_HP), PLAYER_HP, MAX_HP_CAP);
@@ -1070,6 +1099,7 @@ export class Game {
   }
 
   returnToTitle(): void {
+    this.clearSupers();
     this.setCheat('health', false); this.setCheat('energy', false);
     document.querySelector<HTMLDialogElement>('#rewardDialog')?.close();
     this.mode = 'title'; this.opening = null; this.talk = null;
@@ -1078,6 +1108,8 @@ export class Game {
 
   private roomReward(room: Room): void {
     if (room.rewarded || room.kind === 'home' || room.kind === 'spirit') return;
+    // 줍지 않고 나갔다 돌아와도 하드방 보상은 그 자리에 있다
+    if (room.kind === 'hard') { this.placeRoomItem(); return; }
     if (room.kind === 'rest') {
       room.rewarded = true; this.player.hp = Math.min(this.player.maxHp, this.player.hp + 35); this.player.energy = this.player.maxEnergy;
       this.ui.center('숨 고르기 · HP +35 · 기력 회복');
@@ -1085,12 +1117,58 @@ export class Game {
       room.rewarded = true; this.player.armor = Math.min(3, this.player.armor + 1);
       this.startTalk([{who:'yunseul',face:'troubled',text:CHAPTERS[this.stage.chapter - 1]!.after},{who:'sena',face:'smile',text:'지나간 기억이야. 네 잘못이 아니었어. 이제 한 번은 내가 막아줄게.'}],()=>{});
     } else if (room.kind === 'shop') {
-      this.ui.chooseReward(this.player.warmth, cost => {
-        if (this.player.warmth < cost || room.rewarded) return false;
-        this.player.warmth -= cost; this.runAttack += 0.15; this.player.hp = Math.min(this.player.maxHp, this.player.hp + 25); room.rewarded = true;
-        return true;
-      });
+      this.openShop(room);
     }
+  }
+
+  private openShop(room: Room): void {
+    const goods = (Object.keys(ITEMS) as ItemId[]).filter(id => {
+      const spec = ITEMS[id];
+      return spec.cost !== undefined && !room.bought?.includes(id) && (this.items[id] ?? 0) < (spec.limit ?? Infinity);
+    });
+    if (goods.length === 0) {
+      room.rewarded = true;
+      document.querySelector<HTMLDialogElement>('#rewardDialog')?.close();
+      return;
+    }
+    this.ui.chooseReward(goods, this.player.warmth, id => {
+      const cost = ITEMS[id].cost ?? 0;
+      if (this.player.warmth < cost) return;
+      this.player.warmth -= cost;
+      (room.bought ??= []).push(id);
+      this.gainItem(id);
+      this.sfx.play('pickup');
+      this.saveCheckpoint();
+      this.openShop(room);
+    });
+  }
+
+  /** 아이템 효과는 여기 한 곳에서만 적용한다 (상점·줍기 공통) */
+  private gainItem(id: ItemId): void {
+    const p = this.player, first = Object.keys(this.items).length === 0;
+    this.items[id] = (this.items[id] ?? 0) + 1;
+    if (id === 'meal') { this.runAttack += 0.15; p.hp = Math.min(p.maxHp, p.hp + 25); }
+    else if (id === 'shoes') { this.runAttack += 0.12; p.maxEnergy = Math.min(MAX_ENERGY_CAP, p.maxEnergy + 3); }
+    else if (id === 'crystal') { p.maxEnergy = Math.min(MAX_ENERGY_CAP, p.maxEnergy + 10); p.energy = p.maxEnergy; }
+    else if (id === 'heart') { p.maxHp = Math.min(MAX_HP_CAP, p.maxHp + 20); p.hp = Math.min(p.maxHp, p.hp + 20); }
+    if (first) this.ui.say(window.matchMedia('(pointer: coarse)').matches ? '아이템 버튼으로 가진 걸 볼 수 있어.' : 'I를 누르면 가진 아이템을 볼 수 있어.', 'smile');
+  }
+
+  /** 보온병 하나에 25%씩. 기본은 초당 1. */
+  private get energyRate(): number { return 1 + (this.items.thermos ?? 0) * 0.25; }
+
+  get inventory(): Inventory {
+    const p = this.player;
+    return {
+      stats: [
+        ['공격력', `+${Math.round((this.runAttack - 1) * 100)}%`],
+        ['기력 회복', `초당 ${this.energyRate}`],
+        ['최대 체력', String(p.maxHp)],
+        ['최대 기력', String(p.maxEnergy)],
+        ['온기', String(p.warmth)],
+      ],
+      items: (Object.keys(ITEMS) as ItemId[]).filter(id => this.items[id]).map(id => ({ id, count: this.items[id] ?? 0 })),
+    };
   }
 
   private after(time: number, run: () => void): void { this.events.push({time,run}); }
@@ -1110,8 +1188,12 @@ export class Game {
     this.reverseTime = Math.max(0, this.reverseTime - dt); this.freezeCooldown = Math.max(0,this.freezeCooldown-dt); this.fixedForm = Math.max(0,this.fixedForm-dt);
     const p = this.player;
     const draining=this.zones.some(zone=>zone.stopEnergy&&zone.age>=zone.warning&&contains(zone,p.x,p.y));
-    p.energy = this.cheats.energy ? p.maxEnergy : Math.min(p.maxEnergy, p.energy + (draining ? 0 : dt));
+    p.energy = this.cheats.energy ? p.maxEnergy : Math.min(p.maxEnergy, p.energy + (draining ? 0 : dt * this.energyRate));
     for (const slot of this.equipped) for (const key of ['q','w','e','r'] as const) if (this.freezeCooldown <= 0) slot.cooldowns[key] = Math.max(0,slot.cooldowns[key]-dt);
+    if (!this.comboHinted && this.comboHud?.grown) {
+      this.comboHinted = true;
+      this.ui.say(window.matchMedia('(pointer: coarse)').matches ? '둘이 같이 쏠 수 있어. R이 다 돌아오면 합동 버튼.' : '둘이 같이 쏠 수 있어. R이 다 돌아오면 F.', 'smile');
+    }
     for (const queued of this.input.skillQueue.splice(0)) {
       this.aimPoint = typeof queued === 'string' ? null : {x:queued.x,y:queued.y};
       this.castSkill(typeof queued === 'string' ? queued : queued.key);
@@ -1145,9 +1227,19 @@ export class Game {
     }
     this.skillPower = (slot.tier === 3 ? 1.6 : slot.tier === 2 ? 1.3 : 1) * this.runAttack;
     this.castAt = this.clock; this.spiritCastAt = this.clock;
-    this.ui.callSpirit(SPIRIT_NAMES[slot.element] + (key === 'r' ? '!!' : '!'), key === 'r');
-    this.executeSkill(slot.element,key);
-    if (key === 'r') this.ultBurst(slot.element);
+    if (key === 'r') {
+      const element = slot.element, aim = this.aimPoint, power = this.skillPower;
+      this.beginCut([slot], `${SPIRIT_NAMES[element]} · 초필살기`, spec.name, pickLine('super'), 0.8, ELEMENT[element].glow, () => {
+        this.skillPower = power; this.aimPoint = aim;
+        this.ui.callSpirit(`${SPIRIT_NAMES[element]}!!`, true);
+        this.executeSkill(element, 'r');
+        this.aimPoint = null;
+        this.ultBurst(element);
+      });
+    } else {
+      this.ui.callSpirit(`${SPIRIT_NAMES[slot.element]}!`, false);
+      this.executeSkill(slot.element, key);
+    }
     if(this.reactionCd<=0&&this.equipped.length>=2){
       const elements=this.equipped.map(s=>s.element);
       if(elements.includes('fire')&&elements.includes('wood')){
@@ -1242,15 +1334,9 @@ export class Game {
         this.px.fireRing(p.x, p.y + 4, 32);
       }
       if (key === 'r') {
-        // 대폭발: 1초 모았다가 터진다
-        area({warning:1,life:0.3,status:'burn',source:-1,r:limit*0.75});
+        // 초대형 불대포: 조준한 쪽으로 곧게 뻗는다. 그림이 대칭이라 그대로 돌린다.
+        this.spawnSuper('cannon', element, p.x + Math.cos(angle) * 12, p.y - 10 + Math.sin(angle) * 12, angle, angle, 1, damage);
         sparkle(p.x, p.y - 10, 24, [COLOR.fireHot, COLOR.fire], 40);
-        this.after(1, () => {
-          this.px.fireRing(p.x, p.y + 4, limit * 0.75);
-          this.px.fireHit(p.x, p.y + 4, 40, -Math.PI / 2);
-          this.fx.shake(7); this.fx.flashAmt = Math.max(this.fx.flashAmt, 0.35);
-          this.hitstop = Math.max(this.hitstop, 0.1);
-        });
       }
     } else if (element === 'water') {
       if (key === 'q') {
@@ -1270,9 +1356,10 @@ export class Game {
         sparkle(p.x, p.y - 10, 18, ['#5eb0ff', '#c8e8ff']);
       }
       if (key === 'r') {
-        // 해일: 사방으로 무거운 물대포 12줄기
-        for(let i=0;i<12;i++)shot(i/12*TAU, { vx: 190, r: 6, style: 'bubble', pierce: true, knock: 560, art: 'fx_water_dagger_sm', artScale: 0.8 });
-        this.fx.ring(p.x, p.y - 6, 60, 0.5); this.fx.shake(4);
+        // 대해일: 조준한 쪽을 향해 방 끝에서 끝까지 쓸고 간다
+        const dir = Math.cos(angle) >= 0 ? 1 : -1;
+        this.spawnSuper('wave', element, dir > 0 ? -20 : VIEW_W + 20, FLOOR.y + FLOOR.h - 6, dir > 0 ? 0 : Math.PI, 0, dir, damage);
+        this.fx.shake(4);
       }
     } else if (element === 'wood') {
       if (key === 'q') {
@@ -1332,8 +1419,11 @@ export class Game {
           marked = this.activeEnemies().filter(e => dist(p.x, p.y, e.x, e.y) < 140);
           for (const e of marked) this.applyStatus(e, 'mark', 1);
         }
+        // 리퍼가 나타나 낫을 돌린다. 베는 건 낫이 다 돌아간 뒤.
+        const dir = Math.cos(angle) >= 0 ? 1 : -1;
+        this.spawnSuper('reaper', element, p.x - dir * 8, p.y - 24, angle, 0, dir, damage);
         this.fx.flashAmt = Math.max(this.fx.flashAmt, 0.2);
-        marked.forEach((enemy, i) => this.after(0.08 * i, () => {
+        marked.forEach((enemy, i) => this.after(REAPER_SWING + 0.08 * i, () => {
           if (enemy.faced) return;
           const a = angleTo(p.x, p.y, enemy.x, enemy.y);
           this.hitEnemy(enemy, !enemy.boss && enemy.hp / enemy.maxHp <= 0.25 ? enemy.hp : damage, a, 0, true, 'dark');
@@ -1360,13 +1450,157 @@ export class Game {
         this.fx.ring(p.x, p.y - 6, limit, 0.35);
       }
       if (key === 'r') {
-        // 빛의 기둥: 안에선 받는 피해 절반, 그늘은 계속 탄다
-        area({x,y,life:6,effect:'light'});
-        for(const enemy of this.activeEnemies())if(dist(x,y,enemy.x,enemy.y)<=limit){this.applyStatus(enemy,'stun',1.5);this.hitEnemy(enemy,damage*2,angleTo(x,y,enemy.x,enemy.y),60,true,'light');}
-        sparkle(x, y - 20, 50, ['#fff0b1', COLOR.white], 160);
+        // 빛의 검: 꽂힌 자리가 성역이 된다. 안에선 받는 피해 절반, 그늘은 계속 탄다.
+        this.spawnSuper('sword', element, x, y + 6, angle, 0, 1, damage);
+        this.after(SWORD_DROP, () => {
+          area({x,y,life:6,effect:'light'});
+          for(const enemy of this.activeEnemies())if(dist(x,y,enemy.x,enemy.y)<=limit){this.applyStatus(enemy,'stun',1.5);this.hitEnemy(enemy,damage*2,angleTo(x,y,enemy.x,enemy.y),60,true,'light');}
+          sparkle(x, y - 20, 50, ['#fff0b1', COLOR.white], 160);
+          this.fx.flashAmt = Math.max(this.fx.flashAmt, 0.5); this.fx.shake(9);
+          this.hitstop = Math.max(this.hitstop, 0.08);
+        });
       }
     }
     this.skillVfx(element,key,angle,startX,startY,x,y);
+  }
+
+  /* ═══════════════ 초필살기 · 합동 궁극기 ═══════════════ */
+
+  private clearSupers(): void {
+    this.cut = null; this.supers = []; this.senaShowT = 0;
+    this.ui.hideSuper();
+  }
+
+  /** 컷인의 정령 그림. R과 합동 궁극기는 중급부터라 하급 그림은 필요 없다. */
+  private spiritArt(slot: SpiritSlot): string {
+    return `cut_evo_${slot.element}_${slot.tier >= 3 ? 'upper' : 'medium'}`;
+  }
+
+  private beginCut(slots: readonly SpiritSlot[], label: string, name: string, line: string, life: number, glow: string, run: () => void): void {
+    this.cut = { t: 0, life, spirits: slots.map(slot => this.spiritArt(slot)), glow, run };
+    this.ui.showSuper(label, name, line, glow);
+  }
+
+  private updateCut(dt: number): void {
+    const cut = this.cut;
+    if (!cut) return;
+    cut.t += dt;
+    if (cut.t < cut.life) return;
+    this.cut = null;
+    this.ui.hideSuper();
+    this.input.skillQueue.length = 0; // 멈춘 동안 눌린 키가 풀리자마자 나가지 않게
+    this.senaShowT = 1.5;
+    this.player.invuln = Math.max(this.player.invuln, 0.5);
+    cut.run();
+  }
+
+  private spawnSuper(kind: SuperKind, element: Element, x: number, y: number, angle: number, tilt: number, dir: 1 | -1, damage: number): void {
+    this.supers.push({ kind, element, x, y, angle, tilt, dir, t: 0, damage, hit: new Set() });
+  }
+
+  /** 곧게 뻗는 공격의 판정: 그늘을 치고 탄을 지운다 */
+  private superLine(s: SuperFx, length: number, half: number, damage: number, knock: number, onHit?: (e: Enemy) => void): void {
+    const c = Math.cos(s.angle), n = Math.sin(s.angle);
+    const inside = (x: number, y: number, r: number): boolean => {
+      const dx = x - s.x, dy = y - s.y, along = dx * c + dy * n, across = -dx * n + dy * c;
+      return along >= -r && along <= length + r && Math.abs(across) <= half + r;
+    };
+    for (const e of this.activeEnemies()) {
+      if (!inside(e.x, e.y, e.r)) continue;
+      this.hitEnemy(e, damage, s.angle, knock, true, s.element);
+      onHit?.(e);
+    }
+    this.bullets = this.bullets.filter(b => b.owner !== 'enemy' || !inside(b.x, b.y, b.r));
+  }
+
+  private updateSupers(dt: number): void {
+    for (const s of this.supers) {
+      const before = s.t;
+      s.t += dt;
+      const at = (time: number): boolean => before < time && s.t >= time;
+      if (s.kind === 'cannon' && at(0.06)) {
+        this.superLine(s, 420, 46, s.damage, 120, e => this.applyStatus(e, 'burn', 3));
+        this.fx.shake(10); this.fx.flashAmt = Math.max(this.fx.flashAmt, 0.5);
+        this.hitstop = Math.max(this.hitstop, 0.08);
+      }
+      if (s.kind === 'wave') {
+        s.x += s.dir * WAVE_SPEED * dt;
+        for (const e of this.activeEnemies()) {
+          if (s.hit.has(e.id) || s.dir * (s.x - e.x) < -e.r) continue;
+          s.hit.add(e.id);
+          this.hitEnemy(e, s.damage, s.angle, 560, true, 'water');
+        }
+        // 앞머리가 지나간 자리의 탄은 파도에 씻긴다
+        this.bullets = this.bullets.filter(b => b.owner !== 'enemy' || s.dir * (s.x - b.x) < 0);
+      }
+      if (s.kind === 'steam') for (const time of [0.2, 0.42, 0.64]) if (at(time)) {
+        const last = time === 0.64;
+        this.superLine(s, 465, 60, s.damage / 3, last ? 300 : 60, e => { if (last) this.applyStatus(e, 'burn', 4); });
+        this.fx.shake(last ? 12 : 6);
+        if (last) { this.fx.flashAmt = Math.max(this.fx.flashAmt, 0.6); this.hitstop = Math.max(this.hitstop, 0.1); }
+      }
+      if (s.kind === 'eclipse' && at(ECLIPSE_BURST)) {
+        const cx = s.x + Math.cos(s.angle) * ECLIPSE_REACH, cy = s.y + Math.sin(s.angle) * ECLIPSE_REACH;
+        const struck = (e: Enemy): void => { if (s.hit.has(e.id)) return; s.hit.add(e.id); this.applyStatus(e, 'stun', 1.5); this.applyStatus(e, 'blind', 3); };
+        const hitNear = (e: Enemy): void => { if (s.hit.has(e.id) || dist(cx, cy, e.x, e.y) > 130 + e.r) return; this.hitEnemy(e, s.damage, angleTo(cx, cy, e.x, e.y), 200, true, 'dark'); struck(e); };
+        this.superLine(s, ECLIPSE_REACH, 50, s.damage, 200, struck);
+        for (const e of this.activeEnemies()) hitNear(e);
+        this.bullets = this.bullets.filter(b => b.owner !== 'enemy');
+        this.fx.ring(cx, cy, 130, 0.5); this.fx.shake(13);
+        this.fx.flashAmt = Math.max(this.fx.flashAmt, 0.75); this.hitstop = Math.max(this.hitstop, 0.12);
+      }
+    }
+    this.supers = this.supers.filter(s => s.t < SUPERS[s.kind].life);
+  }
+
+  /** 장착한 정령 중 합동 궁극기 짝. 슬롯이 3칸이라 동시에 두 짝은 나오지 않는다. */
+  private comboSlots(): { spec: ComboSpec; slots: readonly [SpiritSlot, SpiritSlot] } | null {
+    for (const spec of COMBOS) {
+      const a = this.equipped.find(slot => slot.element === spec.pair[0]), b = this.equipped.find(slot => slot.element === spec.pair[1]);
+      if (a && b) return { spec, slots: [a, b] };
+    }
+    return null;
+  }
+
+  get comboHud(): ComboHud | null {
+    const combo = this.comboSlots();
+    if (!combo) return null;
+    const [a, b] = combo.slots, p = this.player;
+    const grown = a.tier >= 2 && b.tier >= 2, cooldown = Math.max(a.cooldowns.r, b.cooldowns.r);
+    return {
+      name: combo.spec.name, cost: combo.spec.cost, text: combo.spec.text,
+      pair: `${SPIRIT_NAMES[a.element]} × ${SPIRIT_NAMES[b.element]}`,
+      grown, cooldown,
+      ready: grown && cooldown <= 0 && (this.cheats.energy || p.energy >= combo.spec.cost) && !p.effects.stun && !p.effects.silence,
+    };
+  }
+
+  /** F · 합동 궁극기 버튼. 안 되는 이유는 세나가 말해준다. */
+  castCombo(): void {
+    const p = this.player;
+    if (this.mode !== 'play' || this.cut || this.endingT >= 0 || p.effects.stun || p.effects.silence) return;
+    const combo = this.comboSlots();
+    if (!combo) { this.ui.say('같이 쏠 짝이 없어. 메르와 쿠이, 아니면 루나와 카이.', 'flat'); return; }
+    const { spec, slots } = combo, [a, b] = slots;
+    if (a.tier < 2 || b.tier < 2) { this.ui.say('둘 다 중급이 돼야 같이 쏠 수 있어.', 'flat'); return; }
+    if (a.cooldowns.r > 0 || b.cooldowns.r > 0) { this.ui.say('둘의 R이 다 돌아와야 해.', 'flat'); return; }
+    if (!this.cheats.energy && p.energy < spec.cost) { this.ui.say(`기력이 부족해. ${spec.cost}만큼 필요해.`, 'troubled'); return; }
+    if (!this.cheats.energy) p.energy -= spec.cost;
+    for (const slot of slots) { slot.cooldowns.r = SKILLS[slot.element].r.cd; slot.xp += 1; }
+    const power = (Math.max(a.tier, b.tier) === 3 ? 1.6 : 1.3) * this.runAttack, glow = ELEMENT[a.element].glow;
+    this.castAt = this.clock; this.spiritCastAt = this.clock;
+    this.sfx.play('ult');
+    this.beginCut(slots, `${SPIRIT_NAMES[a.element]} × ${SPIRIT_NAMES[b.element]} · 합동 궁극기`, spec.name, pickLine('combo'), 1.15, glow, () => {
+      const target = this.activeEnemies().sort((m, n) => dist(p.x, p.y, m.x, m.y) - dist(p.x, p.y, n.x, n.y))[0];
+      const aim = target ? angleTo(p.x, p.y - 10, target.x, target.y) : p.facing > 0 ? 0 : Math.PI;
+      // 그림에 정령이 들어 있어 뒤집히면 안 된다: 좌우만 뒤집고 살짝만 기울인다
+      const dir = Math.cos(aim) >= 0 ? 1 : -1;
+      const tilt = clamp(dir > 0 ? Math.atan2(Math.sin(aim), Math.cos(aim)) : Math.atan2(Math.sin(aim), -Math.cos(aim)), -0.45, 0.45);
+      const angle = dir > 0 ? tilt : Math.PI - tilt;
+      this.spawnSuper(spec.pair[0] === 'fire' ? 'steam' : 'eclipse', a.element, p.x, p.y - 10, angle, tilt, dir, spec.damage * power);
+      this.ultBurst(a.element);
+      this.ui.callSpirit(`${spec.name}!!`, true);
+    });
   }
 
   /** 궁극기: 화면이 번쩍이고 멈칫하며 크게 흔들린다 */
@@ -1416,20 +1650,9 @@ export class Game {
       case 'fire_q': this.playVfx(panel('bow') + '_sm', sx + Math.cos(angle) * 20, sy - 9 + Math.sin(angle) * 20, { life: 0.2, angle }); break;
       case 'fire_w': this.playVfx(panel('dagger'), mid.x, mid.y, { life: 0.35, angle }); break;
       case 'fire_e': this.playVfx(panel('longsword'), p.x, p.y - 10, { life: 0.6, follow: true, scale: 0.8 }); break;
-      case 'fire_r':
-        this.after(1, () => {
-          this.playVfx(panel('longsword'), p.x, p.y - 8, { life: 1.0, scale: 4.2 });
-          for (let i = 0; i < 6; i++) this.playVfx(panel('knuckle'), p.x + Math.cos(i * TAU / 6) * 100, p.y - 8 + Math.sin(i * TAU / 6) * 80, { life: 0.8, angle: i * TAU / 6, scale: 1.8 });
-          this.fx.shake(12); this.fx.flashAmt = Math.max(this.fx.flashAmt, 0.7);
-        });
-        break;
       case 'water_q': this.playVfx(panel('dagger') + '_sm', sx + Math.cos(angle) * 18, sy - 9 + Math.sin(angle) * 18, { life: 0.2, angle }); break;
       case 'water_w': this.playVfx(panel('longsword'), p.x, p.y - 12, { life: 0.6, rise: 18, scale: 0.8 }); break;
       case 'water_e': this.playVfx(panel('knuckle') + '_sm', p.x, p.y - 10, { life: 0.4, angle }); break;
-      case 'water_r':
-        this.playVfx(panel('longsword'), p.x, p.y - 10, { life: 1.0, scale: 3.6 });
-        for (let i = 0; i < 6; i++) this.playVfx(panel('longsword'), p.x + Math.cos(i * TAU / 6) * 110, p.y - 8 + Math.sin(i * TAU / 6) * 90, { life: 0.9, scale: 1.9 });
-        break;
       case 'wood_q': this.playVfx(panel('knuckle'), x, y - 6, { life: 0.5, scale: 0.8 }); break;
       case 'wood_w': this.playVfx(panel('knuckle') + '_sm', p.x, p.y - 10, { life: 0.6, follow: true }); break;
       case 'wood_e': this.playVfx(panel('bow'), sx + Math.cos(angle) * 64, sy + Math.sin(angle) * 64, { life: 0.4, angle, scale: 1.3 }); if (x !== sx || y !== sy) this.playVfx(panel('dagger'), x, y - 6, { life: 0.8, scale: 0.7 }); break;
@@ -1437,11 +1660,9 @@ export class Game {
       case 'dark_q': this.playVfx(panel('dagger') + '_sm', sx + Math.cos(angle) * 18, sy - 9 + Math.sin(angle) * 18, { life: 0.2, angle }); break;
       case 'dark_w': this.playVfx(panel('dagger'), sx, sy - 8, { life: 0.35 }); this.playVfx(panel('dagger'), p.x, p.y - 8, { life: 0.35 }); break;
       case 'dark_e': this.playVfx(panel('longsword'), x, y - 8, { life: 1.2, scale: 1.8, alpha: 0.85 }); break;
-      case 'dark_r': this.playVfx(panel('longsword'), p.x, p.y - 8, { life: 1.1, scale: 3.8, alpha: 0.9 }); for (const e of this.activeEnemies()) if (e.effects.mark) this.playVfx(panel('knuckle'), e.x, e.y - 10, { life: 0.7, scale: 1.7 }); break;
       case 'light_q': this.playVfx(panel('bow'), sx + Math.cos(angle) * 56, sy - 6 + Math.sin(angle) * 56, { life: 0.28, angle, scale: 1.2 }); break;
       case 'light_w': this.playVfx(panel('knuckle'), p.x, p.y - 12, { life: 0.8, follow: true, rise: 8, scale: 0.8 }); break;
       case 'light_e': this.playVfx(panel('knuckle'), p.x, p.y - 8, { life: 0.4, scale: 2 }); break;
-      case 'light_r': this.playVfx(panel('longsword'), x, y - 60, { life: 1.6, scale: 2.6 }); this.playVfx(panel('knuckle'), x, y - 6, { life: 1.2, scale: 2.4 }); break;
     }
   }
 
@@ -1946,51 +2167,70 @@ export class Game {
     const p = this.player;
     const heartFull = p.maxHp >= MAX_HP_CAP, energyFull = p.maxEnergy >= MAX_ENERGY_CAP;
     if (heartFull && energyFull) return;
-    const kind: Item['kind'] = heartFull ? 'energy' : energyFull ? 'heart' : Math.random() < 0.5 ? 'energy' : 'heart';
+    const kind: ItemId = heartFull ? 'crystal' : energyFull ? 'heart' : Math.random() < 0.5 ? 'crystal' : 'heart';
     this.item = { x, y, vx: rand(-30, 30), vy: -90, t: 0, kind };
   }
 
+  /** 하드방 보상: 방 한가운데에 떠 있다 */
+  private placeRoomItem(): void {
+    this.item = { x: CX, y: CY, vx: 0, vy: 0, t: ITEM_LAND, kind: 'shoes' };
+  }
+
+  /** 튀어 올랐다 내려앉은 뒤에는 그 자리에서 기다린다. 벽 밖으로 나가면 못 주우니 바닥 안에 묶는다. */
   private updateItem(dt: number): void {
-    const it = this.item, p = this.player;
+    const it = this.item;
     if (!it) return;
     it.t += dt;
-    if (it.t < 0.7) {
-      // 튀어 올랐다 떨어진다
-      it.vy += 260 * dt; it.x += it.vx * dt; it.y += it.vy * dt;
-      return;
-    }
-    const d = dist(it.x, it.y, p.x, p.y - 8);
-    // 1.8초 뒤부터 (또는 가까이 가면) 윤슬에게 끌려온다
-    if (it.t > 1.8 || d < 40) {
-      const a = angleTo(it.x, it.y, p.x, p.y - 8), v = Math.min(260, 60 + (it.t - 1.8) * 220);
-      it.x += Math.cos(a) * Math.max(60, v) * dt; it.y += Math.sin(a) * Math.max(60, v) * dt;
-    }
-    if (d < 9) this.takeItem(it);
+    if (it.t >= ITEM_LAND) return;
+    it.vy += 260 * dt;
+    it.x = clamp(it.x + it.vx * dt, IN_X0, IN_X1);
+    it.y = clamp(it.y + it.vy * dt, IN_Y0, IN_Y1);
+  }
+
+  private itemInReach(): boolean {
+    const it = this.item, p = this.player;
+    return !!it && it.t >= ITEM_LAND && dist(it.x, it.y, p.x, p.y - 8) <= PICKUP_RANGE;
+  }
+
+  get pickupPrompt(): PickupPrompt | null {
+    const it = this.item;
+    if (!it || this.mode !== 'play' || it.t < ITEM_LAND) return null;
+    const near = this.itemInReach(), name = ITEMS[it.kind].name;
+    const key = window.matchMedia('(pointer: coarse)').matches ? '공격 버튼' : 'Space';
+    return { text: near ? `${key} · ${name}` : name, x: it.x, y: it.y - 12, near };
   }
 
   private takeItem(it: Item): void {
     const p = this.player;
     this.item = null;
-    if (it.kind === 'energy') {
-      p.maxEnergy = Math.min(MAX_ENERGY_CAP, p.maxEnergy + 10); p.energy = p.maxEnergy;
-      this.ui.center('기력의 결정 · 최대 기력 +10');
-      this.fx.burst(p.x, p.y - 10, 0, 22, ['#7fd8ff', '#e8faff', '#3a8ad0'], { spread: Math.PI, speed: 120, life: 0.6, glow: true });
-    } else {
-      p.maxHp = Math.min(MAX_HP_CAP, p.maxHp + 20); p.hp = Math.min(p.maxHp, p.hp + 20);
-      this.ui.center('심장 조각 · 최대 체력 +20');
-      this.fx.burst(p.x, p.y - 10, 0, 22, [COLOR.heart, '#ffd0d0', COLOR.accent], { spread: Math.PI, speed: 120, life: 0.6, glow: true });
-    }
+    if (this.room.kind === 'hard') this.room.rewarded = true;
+    this.gainItem(it.kind);
+    this.ui.center(`${ITEMS[it.kind].name} · ${ITEMS[it.kind].effect}`);
+    const colors = it.kind === 'crystal' ? ['#7fd8ff', '#e8faff', '#3a8ad0'] : it.kind === 'heart' ? [COLOR.heart, '#ffd0d0', COLOR.accent] : [COLOR.accent, COLOR.white, COLOR.pale];
+    this.fx.burst(p.x, p.y - 10, 0, 22, colors, { spread: Math.PI, speed: 120, life: 0.6, glow: true });
     this.px.warmth(p.x, p.y + 4);
     this.fx.ring(p.x, p.y - 6, 26, 0.4);
     this.sfx.play('spirit');
+    this.saveCheckpoint();
   }
 
   private drawItem(): void {
     const it = this.item;
     if (!it) return;
     const ctx = this.ctx, x = Math.round(it.x), y = Math.round(it.y + Math.sin(this.clock * 4) * 1.5);
+    // 바닥 다른 아이템(심장·결정)은 2px를 콕 찍는 한 점이라 눈에 잘 안 띈다. 도트 한 칸을 2배로 찍어서 키운다.
+    if (it.kind === 'shoes') {
+      pixelEllipse(ctx, it.x, it.y + 10, 8, 2, COLOR.shadow);
+      // 끈 묶은 운동화: 옆모습, 도트 한 칸 = 2×2픽셀
+      const rows = ['..ww...', '..wlw..', '..wlww.', '..wwwww', 'sssssss'];
+      const pal: Record<string, string> = { w: '#e8e4da', l: COLOR.accent, s: '#8a8b93' };
+      const scale = 2;
+      rows.forEach((row, j) => { for (let i = 0; i < row.length; i++) { const c = pal[row[i]!]; if (c) { ctx.fillStyle = c; ctx.fillRect(x - 7 + i * scale, y - 4 + j * scale, scale, scale); } } });
+      if (Math.floor(this.clock * 3) % 3 === 0) { ctx.fillStyle = '#ffffff'; ctx.fillRect(x + 6, y - 10, 2, 2); ctx.fillRect(x + 4, y - 8, 6, 2); ctx.fillRect(x + 6, y - 6, 2, 2); }
+      return;
+    }
     pixelEllipse(ctx, it.x, it.y + 9, 5, 1.5, COLOR.shadow);
-    if (it.kind === 'energy') {
+    if (it.kind === 'crystal') {
       // 기력의 결정: 푸른 마름모
       const rows = ['...w...', '..wbw..', '.wbbbw.', 'wbbBbbw', '.bbBbb.', '..bBb..', '...b...'];
       const pal: Record<string, string> = { w: '#e8faff', b: '#5ab8f0', B: '#2a6ab0' };
@@ -2048,6 +2288,7 @@ export class Game {
   }
 
   private playerDown(): void {
+    this.clearSupers();
     this.mode = 'down';
     this.saveCheckpoint();
     this.player.downT = 0;
@@ -2411,11 +2652,13 @@ export class Game {
 
   attackPressed(): void {
     if(this.mode==='embrace'){this.tryEmbrace();return;}
+    if(this.mode==='play'&&this.itemInReach()&&this.item){this.takeItem(this.item);return;}
     for(const enemy of this.enemies)if(enemy.boss&&enemy.boss.qteTime>0&&enemy.boss.qteTime<=3)enemy.boss.qte++;
   }
 
   private beginEmbrace(enemy: Enemy): void {
     if(this.embracing)return;
+    this.clearSupers();
     this.embracing=enemy;this.mode='embrace';this.bullets=[];this.zones=[];this.events=[];this.input.attackHeld=false;
     this.player.effects={};this.ui.hideBoss();this.ui.center('다가가서 안아주기 · Space / 왼쪽 버튼');
     for(const other of this.enemies)if(other!==enemy)this.faceEnemy(other,false);
@@ -2829,6 +3072,7 @@ export class Game {
       this.drawFacingRing();
       for (const g of this.ghosts) list.push({ y: p.y - 0.5, draw: () => this.drawGhost(g) });
       list.push({ y: p.y, draw: () => this.drawPlayer() });
+      if (this.senaShowT > 0) list.push({ y: p.y - 0.25, draw: () => this.drawSenaHuman() });
     }
     list.sort((a, b) => a.y - b.y);
     for (const item of list) item.draw();
@@ -2840,11 +3084,13 @@ export class Game {
     ctx.restore();
 
     this.drawLighting([sx, sy]);
+    for (const s of this.supers) drawSuperFx(ctx, s, sx, sy);
     this.drawVfx(sx, sy);
     this.fx.drawMotes(ctx);
     this.drawGlowPass([sx, sy]);
     this.fx.drawOverlay(ctx);
     this.drawHud();
+    if (this.cut) drawCutIn(ctx, this.cut);
   }
 
   /**
@@ -3422,8 +3668,17 @@ export class Game {
   }
 
   /** 세나. 화면에서 가장 밝은 물체. */
+  /** 무기에서 풀려난 세나가 윤슬 곁에 잠깐 서 있다. 다시 휘두르면 손으로 돌아간다. */
+  private drawSenaHuman(): void {
+    const art = ART.get('sena_human_sm'), p = this.player;
+    if (!art) return;
+    const alpha = this.senaShowT > 0.3 ? 1 : Math.ceil(this.senaShowT / 0.1) / 3;
+    this.blit(art, p.x - p.facing * 16, p.y + 4 + Math.round(Math.sin(this.clock * 3)), { flip: p.facing < 0, alpha });
+  }
+
   private drawWeapon(): void {
     const p = this.player;
+    if (this.senaShowT > 0 && p.swingT <= 0) return;
     const ctx = this.ctx;
     const prog = p.swingT > 0 ? 1 - p.swingT / p.swingDur : 0;
     const pulse = p.swingT > 0 ? Math.sin(prog * Math.PI) : 0;
@@ -3770,7 +4025,7 @@ export class Game {
     const spec=enemy?.boss?BOSSES[enemy.boss.id]:null;
     this.ui.updateCombat({stage:this.stage.number,chapter:this.stage.chapter,within:this.stage.within,blocked:Boolean(p.effects.stun||p.effects.silence),
       energy:p.energy,maxEnergy:p.maxEnergy,infiniteEnergy:this.cheats.energy,warmth:p.warmth,armor:p.armor,equipped:this.equipped,active:this.activeSpirit,
-      mode:this.mode,slots:this.slotLimit,
+      mode:this.mode,slots:this.slotLimit,combo:this.comboHud,
       boss:enemy?.boss&&spec?{name:spec.name,hp:enemy.hp,maxHp:enemy.maxHp,phase:enemy.boss.phase,thresholds:spec.phases,
         pattern:enemy.boss.pattern,protected:enemy.boss.invulnerable||(enemy.boss.id==='door'&&enemy.boss.elapsed%8.5>=2.5),
         qte:enemy.boss.qteTime>0?`${enemy.boss.qte}/10`:null,

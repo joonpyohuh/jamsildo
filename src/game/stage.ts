@@ -43,6 +43,8 @@ export interface Room {
   marks: FloorMark[];
   seed: number;
   rewarded?: boolean;
+  /** 상점에서 이미 산 품목 */
+  bought?: string[];
 }
 
 export interface Stage {
@@ -67,6 +69,7 @@ export function restoreStage(number: number, rooms: Room[], element: Element): S
     if (!room || !Number.isInteger(room.gx) || !Number.isInteger(room.gy) || Math.abs(room.gx) > 7 || Math.abs(room.gy) > 7 ||
       !kinds.includes(room.kind) || !Number.isFinite(room.seed) || !Number.isInteger(room.depth) || room.depth < 0 || room.depth > 7 ||
       typeof room.cleared !== 'boolean' || (room.rewarded !== undefined && typeof room.rewarded !== 'boolean') ||
+      (room.bought !== undefined && !Array.isArray(room.bought)) ||
       !Array.isArray(room.wave) || room.wave.length > 10 || room.wave.some(kind => !['bother','heavy','gloom','alarm'].includes(kind)) ||
       !room.doors || DIR_KEYS.some(dir => typeof room.doors[dir] !== 'boolean') || coordinates.has(`${room.gx},${room.gy}`)) throw new Error('invalid saved room');
     coordinates.add(`${room.gx},${room.gy}`);
@@ -101,6 +104,7 @@ const key = (x: number, y: number): string => `${x},${y}`;
 
 /**
  * 첫 스테이지 5개, 이후 7개 방. 보스와 정령방 역할은 서로 다른 셀에 고정한다.
+ * 상점은 스테이지마다 하나. 2스테이지부터는 휴식·하드·기억방이 하나씩 번갈아 붙는다.
  * 보스방: 막다른 방, 시작방에서 2칸 이상. 정령방: 남은 막다른 방이 있으면 그곳, 없으면 시작방이 아닌 아무 방.
  */
 export function generateStage(number = 1): Stage {
@@ -174,9 +178,11 @@ export function generateStage(number = 1): Stage {
     });
 
     const rooms = normals.map((c, i) => makeRoom(c, 'normal', NORMAL_WAVES[Math.min(i, 2)] ?? []));
+    const shop = rooms[rooms.length - 1]!;
+    shop.kind = 'shop'; shop.wave = []; shop.cleared = true;
     if (number > 1) {
-      const special = rooms[rooms.length - 1]!;
-      special.kind = (['rest', 'shop', 'hard', 'memory'] as const)[(number - 2) % 4]!;
+      const special = rooms[rooms.length - 2]!;
+      special.kind = (['rest', 'hard', 'memory'] as const)[(number - 2) % 3]!;
       special.wave = special.kind === 'hard' ? ['alarm'] : [];
       special.cleared = special.wave.length === 0;
     }

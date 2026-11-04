@@ -6,7 +6,7 @@ export type ScreenId = 'title' | 'down' | 'clear';
 
 import { EXPR_INDEX, type Expr } from './lines';
 import type { Room } from './stage';
-import { CHAPTERS, PATTERN_LABELS, SKILLS, SPIRIT_ASSETS, SPIRIT_NAMES, SPIRIT_ROLES, type SpiritSlot } from './campaign';
+import { CHAPTERS, ITEMS, PATTERN_LABELS, SKILLS, SPIRIT_ASSETS, SPIRIT_NAMES, SPIRIT_ROLES, type ItemId, type SpiritSlot } from './campaign';
 import { ELEMENT, type Element } from './config';
 
 /** 표정 얼굴: public/portraits/expr/{sena|yun}-{0..5}.png */
@@ -20,6 +20,9 @@ for (const who of ['sena', 'yunseul'] as const) {
 }
 
 export interface EnemyInfo { name: string; meta: string; ratio: number; text: string }
+export interface ComboHud { name: string; pair: string; cost: number; text: string; grown: boolean; cooldown: number; ready: boolean }
+export interface PickupPrompt { text: string; x: number; y: number; near: boolean }
+export interface Inventory { stats: readonly (readonly [string, string])[]; items: readonly { id: ItemId; count: number }[] }
 
 export class Ui {
   private hudTime=0;
@@ -37,6 +40,7 @@ export class Ui {
   private readonly talkText: HTMLElement;
   private readonly talkFace: HTMLImageElement;
   private readonly enemyPanel: HTMLElement;
+  private readonly pickHint: HTMLElement;
   private readonly enemyName: HTMLElement;
   private readonly enemyMeta: HTMLElement;
   private readonly enemyFill: HTMLElement;
@@ -61,6 +65,7 @@ export class Ui {
     this.talkText = q('#talkText');
     this.talkFace = q<HTMLImageElement>('#talkFace');
     this.enemyPanel = q('#enemyInfo');
+    this.pickHint = q('#pickHint');
     this.enemyName = q('#enemyInfoName');
     this.enemyMeta = q('#enemyInfoMeta');
     this.enemyFill = q('#enemyInfoFill');
@@ -80,10 +85,11 @@ export class Ui {
     if(cta)cta.textContent=stage===20?'눌러서 다시 걷기':'눌러서 다음 스테이지';
   }
 
-  chooseSpirit(elements:readonly Element[],replace:boolean,onSelect:(element:Element)=>void):void {
+  /** @param replacing 슬롯이 가득 찼을 때 밀려나는 정령 이름. 이때만 교체하지 않는 선택지를 준다 */
+  chooseSpirit(elements:readonly Element[],replacing:string|null,onSelect:(element:Element)=>void,onKeep:()=>void):void {
     const dialog=document.querySelector<HTMLDialogElement>('#rewardDialog')!;
     const title=dialog.querySelector<HTMLElement>('#rewardTitle')!,body=dialog.querySelector<HTMLElement>('#rewardDescription')!,choices=dialog.querySelector<HTMLElement>('#rewardChoices')!;
-    title.textContent='함께할 정령';body.textContent=replace?'선택하면 현재 활성 정령과 교체합니다.':'정령 하나를 골라 함께 걸어가세요.';
+    title.textContent='함께할 정령';body.textContent=replacing?`슬롯 3칸이 모두 찼어요. 고르면 지금 쓰는 정령 ${replacing} 자리에 들어옵니다.`:'정령 하나를 골라 함께 걸어가세요.';
     choices.replaceChildren();
     for(const element of elements){
       const button=document.createElement('button');button.type='button';button.className='spirit-choice';button.dataset.element=element;
@@ -92,22 +98,30 @@ export class Ui {
       const description=document.createElement('span');description.textContent=`Q ${SKILLS[element].q.name} · W ${SKILLS[element].w.name} · E ${SKILLS[element].e.name}`;
       button.append(image,name,description);button.addEventListener('click',()=>{dialog.close();onSelect(element);},{once:true});choices.append(button);
     }
+    if(replacing){
+      const keep=document.createElement('button');keep.type='button';keep.className='menu-button';keep.textContent=`교체하지 않기 · ${replacing} 성장`;
+      keep.addEventListener('click',()=>{dialog.close();onKeep();},{once:true});choices.append(keep);
+    }
     if(!dialog.open)dialog.showModal();
     dialog.oncancel=event=>{event.preventDefault();};
   }
 
-  chooseReward(warmth:number,buy:(cost:number)=>boolean):void {
+  chooseReward(goods:readonly ItemId[],warmth:number,buy:(id:ItemId)=>void):void {
     const dialog=document.querySelector<HTMLDialogElement>('#rewardDialog')!;
     dialog.querySelector('#rewardTitle')!.textContent='작은 가게';
-    dialog.querySelector('#rewardDescription')!.textContent=`온기 ${warmth} · 이번 방에서 한 번 살 수 있어요.`;
+    dialog.querySelector('#rewardDescription')!.textContent=`온기 ${warmth} · 품목마다 한 번씩 살 수 있어요.`;
     const choices=dialog.querySelector('#rewardChoices')!;choices.replaceChildren();
-    const item=document.createElement('button');item.type='button';item.className='spirit-choice';item.textContent='선식 한 컵 · 온기 8\nHP +25 · 공격력 +15%';item.disabled=warmth<8;
-    item.onclick=()=>{if(buy(8))dialog.close();};
+    for(const id of goods){
+      const spec=ITEMS[id],cost=spec.cost??0,good=document.createElement('button');good.type='button';good.className='spirit-choice shop-good';good.dataset.item=id;good.disabled=warmth<cost;
+      const name=document.createElement('strong');name.textContent=`${spec.name} · 온기 ${cost}`;
+      const effect=document.createElement('span');effect.textContent=spec.effect;
+      good.append(name,effect);good.onclick=()=>buy(id);choices.append(good);
+    }
     const close=document.createElement('button');close.type='button';close.className='menu-button';close.textContent='다음에 올게요';close.onclick=()=>dialog.close();
-    choices.append(item,close);dialog.oncancel=null;if(!dialog.open)dialog.showModal();
+    choices.append(close);dialog.oncancel=null;if(!dialog.open)dialog.showModal();
   }
 
-  updateCombat(state:{stage:number;chapter:number;within:number;blocked:boolean;energy:number;maxEnergy:number;infiniteEnergy:boolean;warmth:number;armor:number;equipped:readonly SpiritSlot[];active:number;mode:string;slots:number;
+  updateCombat(state:{stage:number;chapter:number;within:number;blocked:boolean;energy:number;maxEnergy:number;infiniteEnergy:boolean;warmth:number;armor:number;equipped:readonly SpiritSlot[];active:number;mode:string;slots:number;combo:ComboHud|null;
     boss:null|{name:string;hp:number;maxHp:number;phase:number;thresholds:number[];pattern:string;protected:boolean;qte:string|null;enraged:boolean}}):void {
     const now=performance.now();if(now-this.hudTime<80)return;this.hudTime=now;
     const q=<T extends HTMLElement=HTMLElement>(selector:string)=>document.querySelector<T>(selector)!;
@@ -136,6 +150,13 @@ export class Ui {
       button.querySelector('.skill-name')!.textContent=spec?.name??'';
       button.setAttribute('aria-label',spec?`${key.toUpperCase()} · ${spec.name} · 기력 ${spec.cost} · ${spec.cd}초`:'');
       if(active)button.style.borderColor=ELEMENT[active.element].glow;
+    }
+    const comboButton=q<HTMLButtonElement>('#comboSkill');comboButton.hidden=!state.combo;
+    if(state.combo){
+      comboButton.disabled=!state.combo.ready;
+      comboButton.dataset.cooldown=!state.combo.grown?'잠김':state.combo.cooldown>0?String(Math.ceil(state.combo.cooldown)):'';
+      comboButton.querySelector('.skill-name')!.textContent=state.combo.name;
+      comboButton.setAttribute('aria-label',`F · 합동 궁극기 ${state.combo.name} · 기력 ${state.combo.cost}`);
     }
     const boss=q('#bossHud');boss.hidden=!state.boss||state.mode!=='play';
     document.documentElement.toggleAttribute('data-boss',!boss.hidden);
@@ -184,6 +205,43 @@ export class Ui {
     for (const [key, el] of Object.entries(this.screens)) {
       el.classList.toggle('is-on', key === id);
     }
+  }
+
+  renderItems(inventory:Inventory):void {
+    const stats=document.querySelector<HTMLElement>('#itemStats')!,list=document.querySelector<HTMLElement>('#itemList')!;
+    stats.replaceChildren();list.replaceChildren();
+    for(const [label,value] of inventory.stats){
+      const row=document.createElement('div'),name=document.createElement('dt'),amount=document.createElement('dd');
+      name.textContent=label;amount.textContent=value;row.append(name,amount);stats.append(row);
+    }
+    for(const {id,count} of inventory.items){
+      const row=document.createElement('li'),name=document.createElement('strong'),effect=document.createElement('span');
+      name.textContent=count>1?`${ITEMS[id].name} ×${count}`:ITEMS[id].name;effect.textContent=ITEMS[id].effect;row.append(name,effect);list.append(row);
+    }
+    if(!inventory.items.length){const empty=document.createElement('li');empty.className='is-empty';empty.textContent='아직 없어요. 가게와 깊은 그늘에서 얻을 수 있어요.';list.append(empty);}
+  }
+
+  /** 컷인의 글자. 그림은 캔버스에 있고, 글자만 도트 격자에 맞춰 DOM으로 얹는다. */
+  showSuper(label:string,name:string,line:string,glow:string):void {
+    const el=document.querySelector<HTMLElement>('#superCut')!;
+    el.querySelector('#superLabel')!.textContent=label;el.querySelector('#superName')!.textContent=name;el.querySelector('#superLine')!.textContent=`『${line}』`;
+    el.style.setProperty('--glow',glow);el.hidden=false;
+    document.documentElement.classList.add('super-cut');
+  }
+
+  hideSuper():void {
+    document.querySelector<HTMLElement>('#superCut')!.hidden=true;
+    document.documentElement.classList.remove('super-cut');
+  }
+
+  /** 바닥 아이템 이름표. 가까우면 줍는 키를 함께 보여준다. */
+  showPickup(prompt:PickupPrompt|null):void {
+    this.pickHint.hidden=!prompt;
+    if(!prompt)return;
+    if(this.pickHint.textContent!==prompt.text)this.pickHint.textContent=prompt.text;
+    this.pickHint.classList.toggle('is-near',prompt.near);
+    this.pickHint.style.left=`calc(var(--px) * ${Math.round(prompt.x)})`;
+    this.pickHint.style.top=`calc(var(--px) * ${Math.round(prompt.y)})`;
   }
 
   /** 매 프레임 불린다: 글자가 바뀔 때만 DOM을 건드린다 */

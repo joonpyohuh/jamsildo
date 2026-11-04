@@ -29,7 +29,7 @@ const fs=require('node:fs/promises');
    }
    const random=Math.random;try{Math.random=()=>0;const stage=generateStage(20);if(!stage.boss)throw Error('fallback failed');}finally{Math.random=random;}
    return {maps,art:ART.size};
-  });assert.equal(topology.maps,1000);assert.equal(topology.art,104);console.log('PASS 1,000 maps: exactly one reachable boss, reciprocal doors, fallback, 104 sprites');
+  });assert.equal(topology.maps,1000);assert.equal(topology.art,124);console.log('PASS 1,000 maps: exactly one reachable boss, reciprocal doors, fallback, 124 sprites');
   const movement=await page.evaluate(async()=>{
    const {FLOOR,CX,CY}=await import('/src/game/config.ts');
    const g=window.__jamsildo;g.debugStage(1);g.enterRoom(g.stage.start,null);
@@ -134,7 +134,9 @@ const fs=require('node:fs/promises');
     g.enterRoom(g.stage.boss,null);const boss=g.enemies.find(e=>e.boss?.main);boss.boss.invulnerable=false;boss.boss.elapsed=0;
     g.hitEnemy(boss,100000,0,0,true);if(g.endingT<0||!g.stage.boss.cleared)throw Error(`boss not cleared ${number}`);
     g.player.x=-30;g.player.y=147;g.checkExit();if(g.mode!=='play')throw Error('exit during boss finish');
-    g.endingT=3.6;g.hitstop=0;g.timeScale=1;g.update(0.05);if(g.mode!=='clear')throw Error(`missing clear ${number}`);
+    g.endingT=3.6;g.hitstop=0;g.timeScale=1;g.update(0.05);
+    if(g.item){if(g.mode!=='play')throw Error(`left before pickup ${number}`);g.item.t=1;g.player.x=g.item.x;g.player.y=g.item.y+8;g.attackPressed();if(g.item)throw Error(`pickup ${number}`);g.update(0.05);}
+    if(g.mode!=='clear')throw Error(`missing clear ${number}`);
     g.screenT=1;g.onScreenTap();if(g.stage.number!==number+1)throw Error('next stage');passed++;
    }
    g.enterRoom(g.stage.boss,null);const child=g.enemies.find(e=>e.boss?.main);g.hitEnemy(child,100000,0,0,true);

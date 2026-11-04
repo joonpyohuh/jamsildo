@@ -36,6 +36,9 @@ const swapBtn=must<HTMLButtonElement>('#swapSpirit');
 const startButton=must<HTMLButtonElement>('#startGame');
 const continueButton=must<HTMLButtonElement>('#continueGame');
 const guestButton=must<HTMLButtonElement>('#startGuest');
+const comboButton=must<HTMLButtonElement>('#comboSkill');
+const itemDialog=must<HTMLDialogElement>('#itemDialog');
+const itemsToggle=must<HTMLButtonElement>('#itemsToggle');
 
 canvas.width = VIEW_W;
 canvas.height = VIEW_H;
@@ -84,6 +87,19 @@ settingsDialog.addEventListener('close', () => {
   if (game.mode !== 'title') canvas.focus({ preventScroll: true });
 });
 rewardDialog.addEventListener('close',()=>canvas.focus({preventScroll:true}));
+/** 아이템 창: 다른 창이 떠 있거나 플레이 중이 아니면 열지 않는다. 열려 있는 동안 게임은 멈춘다. */
+function toggleItems(): void {
+  if (itemDialog.open) { itemDialog.close(); return; }
+  if (game.mode !== 'play' || accounts.paused) return;
+  resetInput();
+  ui.renderItems(game.inventory);
+  itemDialog.showModal();
+  // 닫기 버튼 대신 창에 포커스: 열자마자 강조 테두리가 뜨지 않게
+  itemDialog.focus();
+}
+itemsToggle.addEventListener('click', toggleItems);
+must<HTMLButtonElement>('#itemClose').addEventListener('click', () => itemDialog.close());
+itemDialog.addEventListener('close', () => canvas.focus({ preventScroll: true }));
 continueButton.addEventListener('click',()=>{if(assetsReady){sfx.unlock();game.resumeRun();}});
 startButton.addEventListener('click', () => {
   if(!assetsReady)return;
@@ -161,11 +177,11 @@ function fit(): void {
 
 /* ── 터치 버튼 배치 ── */
 const SKILL_ANGLES: Readonly<Record<SkillKey, number>> = { q: 90, w: 125, e: 160, r: 195 };
-const SKILL_RADIUS = 100, SKILL_SIZE = 56, ATTACK_SIZE = 80, SWAP_SIZE = 44, STICK_SIZE = 112;
+const SKILL_RADIUS = 100, SKILL_SIZE = 56, ATTACK_SIZE = 80, SWAP_SIZE = 44, STICK_SIZE = 112, COMBO_ANGLE = 165;
 function layoutControls(W: number, H: number, safe: Box, stage: Box): void {
   const skillButtons = skillPad.querySelectorAll<HTMLButtonElement>('button[data-skill]');
   if (!touchSeen) {
-    for (const el of [attackBtn, joystick, swapBtn, ...skillButtons]) { el.style.left = el.style.top = ''; el.classList.remove('is-over'); }
+    for (const el of [attackBtn, joystick, swapBtn, comboButton, ...skillButtons]) { el.style.left = el.style.top = ''; el.classList.remove('is-over'); }
     return;
   }
   // 버튼이 화면 밖으로 나가거나 노치·홈바에 닿지 않게 안쪽으로 민다
@@ -190,6 +206,9 @@ function layoutControls(W: number, H: number, safe: Box, stage: Box): void {
   // 정령 교체: 스킬 부채꼴 바깥쪽 위
   const swapAngle = 125 * Math.PI / 180, swapDistance = SKILL_RADIUS + SKILL_SIZE / 2 + SWAP_SIZE / 2 + 8;
   place(swapBtn, ax + Math.cos(swapAngle) * swapDistance, ay - Math.sin(swapAngle) * swapDistance, SWAP_SIZE);
+  // 합동 궁극기: 부채꼴 바깥, 정령 교체와 같은 거리의 왼쪽
+  const comboAngle = COMBO_ANGLE * Math.PI / 180;
+  place(comboButton, ax + Math.cos(comboAngle) * swapDistance, ay - Math.sin(comboAngle) * swapDistance, SKILL_SIZE);
   const jx = roomLeft >= STICK_SIZE + 16 ? safe.l + roomLeft / 2 : Math.max(W * 0.1, safe.l + 8) + STICK_SIZE / 2;
   place(joystick, jx, H - Math.max(H * 0.18, safe.b + 8) - STICK_SIZE / 2, STICK_SIZE);
 }
@@ -330,6 +349,8 @@ function applyArrows(): void {
 }
 
 window.addEventListener('keydown', (e) => {
+  // 창이 열려 있어도 I로 닫을 수 있게 아래 일시정지 검사보다 먼저 본다
+  if (e.code === 'KeyI' && !e.repeat && assetsReady && !(e.target instanceof HTMLInputElement)) { e.preventDefault(); toggleItems(); return; }
   if (settingsDialog.open || rewardDialog.open || accounts.paused || e.target instanceof HTMLInputElement || !assetsReady) return;
   // 버튼에 포커스가 남아 있으면 키가 전부 버튼으로 새던 버그: 게임 중에는 포커스를 캔버스로 돌리고 키를 게임이 받는다.
   if (e.target instanceof HTMLButtonElement) {
@@ -344,6 +365,7 @@ window.addEventListener('keydown', (e) => {
     return;
   }
   if (ARROW_KEYS[e.code]) { e.preventDefault(); heldArrows.add(e.code); return; }
+  if (e.code === 'KeyF') { e.preventDefault(); if (!e.repeat) { sfx.unlock(); game.castCombo(); } return; }
   const skill = SKILL_KEYS[e.code];
   const isAttack = ATTACK_KEYS.has(e.code);
   if (!skill && !isAttack && e.code !== 'Enter') return;
@@ -462,6 +484,7 @@ skillPad.addEventListener('pointerup',e=>{
 });
 skillPad.addEventListener('pointercancel',e=>{skillPointers.delete(e.pointerId);skillAim.hidden=true;});
 swapBtn.addEventListener('pointerdown',e=>{e.preventDefault();sfx.unlock();game.cycleSpirit();});
+comboButton.addEventListener('pointerdown',e=>{e.preventDefault();sfx.unlock();game.castCombo();});
 must('#spiritSlots').addEventListener('click',e=>{
   const button=(e.target as Element).closest<HTMLButtonElement>('button[data-spirit]');
   if(button){game.cycleSpirit(Number(button.dataset.spirit));canvas.focus({preventScroll:true});}
@@ -497,9 +520,24 @@ function hideTip(): void { if (!skillTip.hidden) skillTip.hidden = true; tipFor 
 document.addEventListener('pointermove', e => {
   if (e.pointerType !== 'mouse') return;
   // 비활성 버튼도 hit-test는 되므로 좌표로 찾는다
-  const el = document.elementFromPoint(e.clientX, e.clientY)?.closest<HTMLElement>('[data-skill], #spiritSlots button[data-spirit]');
+  const el = document.elementFromPoint(e.clientX, e.clientY)?.closest<HTMLElement>('[data-skill], #comboSkill, #spiritSlots button[data-spirit]');
   if (!el || skillPad.hidden && el.dataset.skill) { hideTip(); return; }
   if (el.dataset.skill) { showTip(el.dataset.skill, el.getBoundingClientRect()); return; }
+  if (el === comboButton) {
+    const combo = game.comboHud;
+    if (!combo) { hideTip(); return; }
+    tipFor = null;
+    must('#skillTipName').textContent = `F · ${combo.name}`;
+    must('#skillTipMeta').textContent = `${combo.pair} · 기력 ${combo.cost}`;
+    must('#skillTipText').textContent = `${combo.text}\n\n두 정령이 모두 중급이고 R이 준비돼 있어야 한다. 쓰면 둘의 R이 함께 돈다.`;
+    skillTip.classList.toggle('is-locked', !combo.grown);
+    skillTip.style.borderColor = '#e0a458';
+    skillTip.hidden = false;
+    const r = el.getBoundingClientRect(), w = skillTip.offsetWidth, h = skillTip.offsetHeight;
+    skillTip.style.left = `${Math.round(Math.max(6, Math.min(window.innerWidth - w - 6, r.left)))}px`;
+    skillTip.style.top = `${Math.round(Math.max(6, r.top - h - 8))}px`;
+    return;
+  }
   const slot = game.equipped[Number(el.dataset.spirit)];
   if (!slot) { hideTip(); return; }
   tipFor = null;
@@ -534,6 +572,7 @@ function frame(now: number): void {
   }
   game.render();
   ui.showEnemyInfo(game.inspectedInfo);
+  ui.showPickup(game.pickupPrompt);
   joystick.hidden = !(touchSeen && (game.mode === 'play' || game.mode === 'embrace'));
   skillPad.hidden = !(game.hasSpirit && game.mode === 'play');
   swapBtn.hidden = !(touchSeen && game.hasSpirit && game.mode === 'play');
@@ -545,6 +584,7 @@ function frame(now: number): void {
   healthHud.hidden = !inGame;
   minimap.hidden = !inGame;
   settingsToggle.hidden = !inGame;
+  itemsToggle.hidden = !inGame;
   must<HTMLElement>('#stageInfo').hidden=!inGame;
   requestAnimationFrame(frame);
 }

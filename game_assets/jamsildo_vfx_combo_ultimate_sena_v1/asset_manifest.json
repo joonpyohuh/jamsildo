@@ -1,0 +1,108 @@
+{
+  "project": "jamsildo",
+  "pack_id": "jamsildo_vfx_combo_ultimate_sena_v1",
+  "version": "1.0.0",
+  "format": "png",
+  "transparency": "rgba",
+  "animation_note": "Every asset is a single still frame; no frame animations are included.",
+  "coordinate_convention": {
+    "vfx_direction": "left_to_right",
+    "vfx_anchor": "center",
+    "character_anchor": "bottom_center"
+  },
+  "assets": [
+    {
+      "id": "combo_fire_water_mer_kui_steam_vortex",
+      "kind": "combo_skill_vfx",
+      "casters": ["spirit_fire_mer", "spirit_water_kui"],
+      "elements": ["fire", "water"],
+      "description_ko": "메르와 쿠이의 증기 나선 합동 공격",
+      "path": "assets/combos/combo_fire_water_mer_kui_steam_vortex.png",
+      "width": 1024,
+      "height": 512,
+      "frames": 1,
+      "direction": "left_to_right",
+      "includes_casters": true
+    },
+    {
+      "id": "combo_light_dark_luna_kai_eclipse_slash",
+      "kind": "combo_skill_vfx",
+      "casters": ["spirit_light_luna", "spirit_dark_kai"],
+      "elements": ["light", "dark"],
+      "description_ko": "루나와 카이의 일식 베기 합동 공격",
+      "path": "assets/combos/combo_light_dark_luna_kai_eclipse_slash.png",
+      "width": 1024,
+      "height": 512,
+      "frames": 1,
+      "direction": "left_to_right",
+      "includes_casters": true
+    },
+    {
+      "id": "ultimate_fire_mer_gigantic_flame_cannon",
+      "kind": "ultimate_skill_vfx",
+      "caster": "spirit_fire_mer",
+      "element": "fire",
+      "description_ko": "초대형 화염 대포",
+      "path": "assets/ultimates/ultimate_fire_mer_gigantic_flame_cannon.png",
+      "width": 1024,
+      "height": 435,
+      "frames": 1,
+      "direction": "left_to_right",
+      "includes_caster": false
+    },
+    {
+      "id": "ultimate_water_kui_horizontal_tsunami",
+      "kind": "ultimate_skill_vfx",
+      "caster": "spirit_water_kui",
+      "element": "water",
+      "description_ko": "가로로 전진하는 거대한 쓰나미",
+      "path": "assets/ultimates/ultimate_water_kui_horizontal_tsunami.png",
+      "width": 1024,
+      "height": 341,
+      "frames": 1,
+      "direction": "left_to_right",
+      "includes_caster": false
+    },
+    {
+      "id": "ultimate_light_luna_divine_sword_slash",
+      "kind": "ultimate_skill_vfx",
+      "caster": "spirit_light_luna",
+      "element": "light",
+      "description_ko": "빛의 검이 소환되어 대각으로 베는 궁극기",
+      "path": "assets/ultimates/ultimate_light_luna_divine_sword_slash.png",
+      "width": 1024,
+      "height": 683,
+      "frames": 1,
+      "direction": "diagonal",
+      "includes_caster": false
+    },
+    {
+      "id": "ultimate_dark_kai_reaper_scythe_slash",
+      "kind": "ultimate_skill_vfx",
+      "caster": "spirit_dark_kai",
+      "element": "dark",
+      "description_ko": "암흑의 리퍼를 소환해 낫으로 크게 베는 궁극기",
+      "path": "assets/ultimates/ultimate_dark_kai_reaper_scythe_slash.png",
+      "width": 1024,
+      "height": 512,
+      "frames": 1,
+      "direction": "left_to_right",
+      "includes_caster": false
+    },
+    {
+      "id": "character_sena_human_idle_3q",
+      "kind": "character_sprite",
+      "character": "sena",
+      "form": "human",
+      "pose": "idle",
+      "view": "three_quarter_front",
+      "description_ko": "은백색 앞머리 단발, 파란 눈, 볼살, 단순한 흰 오프숄더 드레스, 맨발의 인간형 세나",
+      "path": "assets/characters/character_sena_human_idle_3q_128x192.png",
+      "alternate_path": "assets/characters/character_sena_human_idle_3q_256x384.png",
+      "width": 128,
+      "height": 192,
+      "frames": 1,
+      "anchor": "bottom_center"
+    }
+  ]
+}

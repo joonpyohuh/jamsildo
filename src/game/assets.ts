@@ -12,8 +12,9 @@ export const MONSTER_VFX = new Map<string, string>(
 
 /** public/sprites/fx 파일 이름 (scripts/build-assets.cjs와 같은 규칙) */
 function effectIds(): string[] {
-  const ids: string[] = [];
-  for (const sheet of extension.evolution_sheets) for (const cell of sheet.cells) ids.push(`evo_${sheet.element}_${cell.stage}`);
+  // 콤보·초필살기·인간형 세나 팩 (scripts/build-vfx-pack.cjs)
+  const ids: string[] = ['combo_steam', 'combo_eclipse', 'ult_fire', 'ult_water', 'ult_light', 'ult_dark', 'sena_human', 'sena_human_sm'];
+  for (const sheet of extension.evolution_sheets) for (const cell of sheet.cells) ids.push(`evo_${sheet.element}_${cell.stage}`, `cut_evo_${sheet.element}_${cell.stage}`);
   for (const sheet of extension.spirit_effect_sheets) for (const cell of sheet.cells) {
     const c = cell as { weapon?: string; variation?: string };
     const id = `fx_${sheet.element}_${c.weapon ?? c.variation}`;

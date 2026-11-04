@@ -7,7 +7,7 @@ export type LineKey =
   | 'start' | 'enter' | 'clear' | 'hurt' | 'low'
   | 'dagger' | 'sword' | 'bow' | 'knuckle'
   | 'spiritRoom' | 'spiritReady' | 'skillHint' | 'goOut' | 'firstAttack'
-  | 'bossIntro' | 'bossIntroFire' | 'bossSnooze' | 'bossFaced';
+  | 'bossIntro' | 'bossIntroFire' | 'bossSnooze' | 'bossFaced' | 'super' | 'combo';
 
 export type Speaker = 'yunseul' | 'sena';
 
@@ -40,6 +40,8 @@ export const FIRE_SPIRIT_TAKEN: readonly Talk[] = [
 
 export const LINES: Readonly<Record<LineKey, readonly string[]>> = {
   start: ['네 손에 든 무기가 나야, 세나.'],
+  super: ['잠깐 비켜. 이건 내가 해.', '눈 뜨고 봐. 한 번만 보여줄 거야.', '…오늘만이야.'],
+  combo: ['둘 다 맞춰. 박자 놓치면 죽어.', '같이 가. 나 혼자 하는 거 아니니까.'],
   enter: [
     '또 있네. 빨리 끝내.',
     '몸은 내가 끌게. 넌 버티기만 해.',
@@ -82,6 +84,7 @@ export const LINE_FACE: Readonly<Record<LineKey, Expr>> = {
   dagger: 'flat', sword: 'flat', bow: 'flat', knuckle: 'flat',
   spiritRoom: 'blank', spiritReady: 'smile', skillHint: 'smile', goOut: 'flat', firstAttack: 'flat',
   bossIntro: 'flat', bossIntroFire: 'flat', bossSnooze: 'angry', bossFaced: 'smile',
+  super: 'flat', combo: 'smile',
 };
 
 const lastPicked = new Map<LineKey, string>();

@@ -6,7 +6,9 @@ import { readSave, useSaveOwner, writeSave } from './game/storage';
 interface Player { id:string; username:string; is_admin:boolean; blocked:boolean; created_at:string; last_seen:string; play_seconds:number; stage:number; max_stage:number }
 interface Save { checkpoint:Record<string,unknown>|null; revision:number; updated_at:string }
 interface Account { user:Player|null; save?:Save }
-interface Overview { stats:{players:number;today:number;online:number;active_today:number;play_seconds:number;blocked:number;stages:{stage:number;players:number}[]}; players:Player[]; total:number; audit:{action:string;created_at:string;player:{username:string}}[] }
+interface Guest { id:string; created_at:string; last_seen:string; play_seconds:number; sessions:number; stage:number; max_stage:number }
+interface GuestOverview { total:number; today:number; active_today:number; online:number; play_seconds:number; stages:{stage:number;players:number}[]; guests:Guest[] }
+interface Overview { guests:GuestOverview|null; stats:{players:number;today:number;online:number;active_today:number;play_seconds:number;blocked:number;stages:{stage:number;players:number}[]}; players:Player[]; total:number; audit:{action:string;created_at:string;player:{username:string}}[] }
 const el = <T extends HTMLElement = HTMLElement>(id:string):T => document.getElementById(id) as T;
 const duration = (seconds:number):string => `${Math.floor(seconds/3600)}시간 ${Math.floor(seconds%3600/60)}분 ${Math.floor(seconds%60)}초`;
 const date = (value:string):string => new Date(value).toLocaleString('ko-KR',{timeZone:'Asia/Seoul',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false});
@@ -28,6 +30,9 @@ export class Accounts {
   private page = 0;
   private total = 0;
   private adminLoading = false;
+  private guestPage = 0;
+  private guestTotal = 0;
+  private guestPinging = false;
   private guest = readSave();
   private initialized = false;
   /** 타이틀의 '회원가입 / 로그인'에서 열었으면, 성공하는 순간 게임으로 넘어간다 */
@@ -48,6 +53,8 @@ export class Accounts {
     el<HTMLFormElement>('adminSearch').addEventListener('submit',event=>{event.preventDefault();this.page=0;void this.loadAdmin();});
     el('prevPlayers').addEventListener('click',()=>{this.page=Math.max(0,this.page-1);void this.loadAdmin();});
     el('nextPlayers').addEventListener('click',()=>{if((this.page+1)*25<this.total)this.page++;void this.loadAdmin();});
+    el('prevGuests').addEventListener('click',()=>{this.guestPage=Math.max(0,this.guestPage-1);void this.loadAdmin();});
+    el('nextGuests').addEventListener('click',()=>{if((this.guestPage+1)*25<this.guestTotal)this.guestPage++;void this.loadAdmin();});
     el('leaveTest').addEventListener('click',()=>this.leaveTest());
     el('resumeTest').addEventListener('click',()=>this.applyCheat(()=>this.adminDialog.close()));
     for(const kind of ['health','energy'] as const) {
@@ -201,7 +208,8 @@ export class Accounts {
     if(this.inFlight){await this.inFlight;if(!keepalive)return this.sync();return;}
     if(!this.testMode)this.game.saveCheckpoint();
     this.refreshContinue();
-    if(!this.user||this.testMode)return;
+    if(!this.user){void this.pingGuest(keepalive);return;}
+    if(this.testMode)return;
     if(this.conflict)throw new Error('저장 충돌을 먼저 해결해 주세요. 서버 기록은 덮어쓰지 않았습니다.');
     const saveOwner=this.user.id;
     const raw=readSave();
@@ -218,6 +226,34 @@ export class Accounts {
       this.message(error.message);throw error;
     }).finally(()=>{this.inFlight=null;});
     return this.inFlight;
+  }
+  /** 이 브라우저의 익명 게스트 ID. 지우면 새 게스트로 잡힌다. */
+  private guestId():string {
+    const saved=readSave('guest-id');
+    if(saved&&/^[0-9a-f-]{36}$/.test(saved))return saved;
+    const id=crypto.randomUUID();writeSave(id,'guest-id');return id;
+  }
+  /** 게스트 플레이 기록. 실패해도 플레이에는 아무 영향이 없다. 개발 서버의 시험 플레이는 운영 통계에 넣지 않는다. */
+  private async pingGuest(keepalive:boolean):Promise<void> {
+    if(this.guestPinging||this.seconds<1||(location.hostname==='localhost'&&readSave('guest-ping')!=='on'))return;
+    this.guestPinging=true;
+    try{await this.api('guest',{guest:this.guestId(),session:this.session,seconds:Math.floor(this.seconds),stage:this.game.stageNumber},keepalive);}
+    catch{/* 통계가 빠지는 것뿐이다 */}
+    finally{this.guestPinging=false;}
+  }
+  private renderGuests(guests:GuestOverview|null):void {
+    el('guestSection').hidden=!guests;
+    if(!guests)return;
+    this.guestTotal=guests.total;
+    const rows=el('guestRows');rows.replaceChildren();
+    for(const guest of guests.guests){
+      const row=document.createElement('tr');
+      for(const value of [`${Date.now()-Date.parse(guest.last_seen)<60000?'● ':''}게스트 ${guest.id.slice(0,8)}`,duration(guest.play_seconds),`${guest.stage} / ${guest.max_stage}`,`${guest.sessions}회`,date(guest.created_at),date(guest.last_seen)]){const cell=document.createElement('td');cell.textContent=value;row.append(cell);}
+      rows.append(row);
+    }
+    if(!guests.guests.length){const row=document.createElement('tr'),cell=document.createElement('td');cell.colSpan=6;cell.textContent='아직 게스트 기록이 없습니다.';row.append(cell);rows.append(row);}
+    el('guestPage').textContent=`${this.guestPage+1} / ${Math.max(1,Math.ceil(guests.total/25))} · ${guests.total}명`;
+    el<HTMLButtonElement>('prevGuests').disabled=this.guestPage===0;el<HTMLButtonElement>('nextGuests').disabled=(this.guestPage+1)*25>=guests.total;
   }
   private renderStages():void {
     const root=el('adminStages');
@@ -276,15 +312,21 @@ export class Accounts {
     if(!this.user?.is_admin||this.adminLoading)return;
     this.adminLoading=true;el('adminMessage').textContent='운영 현황을 불러오는 중…';
     try{
-      const result=await this.api<Overview>('admin',{page:this.page,search:el<HTMLInputElement>('playerSearch').value,order:el<HTMLSelectElement>('playerOrder').value});
+      const result=await this.api<Overview>('admin',{page:this.page,search:el<HTMLInputElement>('playerSearch').value,order:el<HTMLSelectElement>('playerOrder').value,guestPage:this.guestPage});
       this.total=result.total;
       const stats=result.stats;
       el('adminKpis').replaceChildren();
-      const totalTime=stats.play_seconds<60?`${stats.play_seconds}초`:`${Math.floor(stats.play_seconds/3600)}시간 ${Math.floor(stats.play_seconds%3600/60)}분`;
-      for(const [label,value]of [['가입 플레이어',`${stats.players}명`],['오늘 가입 · 한국 시간',`${stats.today}명`],['접속 중',`${stats.online}명`],['오늘 방문',`${stats.active_today}명`],['누적 플레이',totalTime],['이용 제한',`${stats.blocked}명`]]){
+      const hours=(seconds:number):string=>seconds<60?`${seconds}초`:`${Math.floor(seconds/3600)}시간 ${Math.floor(seconds%3600/60)}분`;
+      const guests=result.guests;
+      const guestKpis=guests?[['게스트',`${guests.total}명`],['게스트 접속 중',`${guests.online}명`],['게스트 오늘 방문',`${guests.active_today}명`],['게스트 누적 플레이',hours(guests.play_seconds)]]:[];
+      for(const [label,value]of [['가입 플레이어',`${stats.players}명`],['오늘 가입 · 한국 시간',`${stats.today}명`],['접속 중',`${stats.online}명`],['오늘 방문',`${stats.active_today}명`],['누적 플레이',hours(stats.play_seconds)],['이용 제한',`${stats.blocked}명`],...guestKpis]){
         const article=document.createElement('article'),name=document.createElement('span'),count=document.createElement('strong');name.textContent=label;count.textContent=value;article.append(name,count);el('adminKpis').append(article);
       }
-      for(const count of document.querySelectorAll<HTMLElement>('[data-stage-count]'))count.textContent=`진행 중 ${stats.stages.find(stage=>stage.stage===Number(count.dataset.stageCount))?.players || 0}명`;
+      for(const count of document.querySelectorAll<HTMLElement>('[data-stage-count]')){
+        const at=Number(count.dataset.stageCount),guest=guests?.stages.find(stage=>stage.stage===at)?.players||0;
+        count.textContent=`진행 중 ${stats.stages.find(stage=>stage.stage===at)?.players || 0}명${guest?` · 게스트 ${guest}`:''}`;
+      }
+      this.renderGuests(guests??null);
       const rows=el('playerRows');rows.replaceChildren();
       for(const player of result.players){
         const row=document.createElement('tr');

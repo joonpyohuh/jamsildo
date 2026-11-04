@@ -440,6 +440,8 @@
       #skills button { position: relative; height: 52px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; }
       .skill-name { font-size: 8px; line-height: 11px; max-width: 40px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
       #skills button:disabled { opacity: 0.45; }
+      #skills #comboSkill { border-color: var(--accent); color: var(--accent); }
+      #skills #comboSkill[hidden] { display: none; }
       #skills button[data-cooldown]:not([data-cooldown=""])::after { content: attr(data-cooldown); position: absolute; inset: 0; display: grid; place-items: center; background: #08090bd9; color: #c9ccd3; font-size: 12px; }
       #attack.is-embrace { font-size: 12px; border-color: #f4c790; color: #f4c790; }
       #loadStatus { position: absolute; bottom: 18px; margin: 0; font-size: 11px; color: var(--dim); }
@@ -473,6 +475,39 @@
       .spirit-choice span { font-size: 10px; }
       .spirit-choice:hover { border-color: var(--accent); }
       .spirit-choice:disabled { opacity: 0.5; }
+      .spirit-choice.shop-good { grid-template-columns: 1fr; gap: 3px; min-height: 60px; }
+      /* 아이템 창: 위는 능력치 표, 아래는 가진 것. 카드 없이 선으로만 나눈다. */
+      #itemDialog { width: min(420px, calc(100% - 32px)); max-height: calc(100% - 32px); padding: 22px; border: 1px solid #5c626d; background: #101216; color: var(--pale); font: 14px Galmuri11, monospace; }
+      #itemDialog:focus { outline: none; }
+      #itemDialog::backdrop { background: #000b; }
+      .item-heading { display: flex; align-items: baseline; justify-content: space-between; }
+      #itemTitle { margin: 0; font-size: 22px; font-weight: 400; }
+      #itemClose { min-height: 32px; padding: 0 0 0 16px; border: 0; background: transparent; color: var(--dim); font: 11px Galmuri9, monospace; letter-spacing: 0.02em; cursor: pointer; }
+      #itemClose:hover { color: var(--pale); }
+      #itemStats { display: grid; grid-template-columns: 1fr 1fr; gap: 0 24px; margin: 14px 0 0; padding: 10px 0; border-block: 1px solid var(--line); font: 11px/1.9 Galmuri9, monospace; letter-spacing: 0.02em; }
+      #itemStats div { display: flex; justify-content: space-between; }
+      #itemStats dt { color: var(--dim); }
+      #itemStats dd { margin: 0; }
+      #itemList { display: grid; gap: 12px; margin: 14px 0 0; padding: 0; list-style: none; }
+      #itemList li { display: grid; gap: 2px; }
+      #itemList strong { font: 400 13px/1.4 Galmuri11, monospace; color: var(--accent); }
+      #itemList span { font: 11px/1.65 Galmuri11, monospace; color: #cfd2d8; word-break: keep-all; }
+      @media (max-height: 500px) { #itemDialog { width: min(520px, calc(100% - 32px)); padding: 14px 18px; } #itemStats { margin-top: 8px; padding: 6px 0; } #itemList { grid-template-columns: 1fr 1fr; gap: 8px 20px; margin-top: 8px; } }
+      #itemList .is-empty { font: 11px/1.65 Galmuri11, monospace; color: var(--dim); word-break: keep-all; }
+      #itemsToggle { position: fixed; top: calc(var(--st) + 62px); left: calc(var(--sl) + 54px); min-height: 32px; padding: 4px 10px; border: 1px solid var(--line); border-radius: 0; background: #08090bbd; color: var(--pale); font: 11px Galmuri11, monospace; cursor: pointer; }
+      @media (min-height: 560px) { #itemsToggle { top: calc(var(--st) + 72px); } }
+      /* 컷인: 세나는 왼쪽(캔버스), 글자는 오른쪽. 세상이 멈춘 동안 다른 HUD는 전부 물러난다. */
+      #superCut { position: absolute; left: calc(var(--px) * 262); top: calc(var(--px) * 138); width: calc(var(--px) * 340); }
+      #superCut[hidden] { display: none; }
+      #superCut p { margin: 0; }
+      #superLabel { font-family: Galmuri9, monospace; font-size: calc(var(--px) * 10); line-height: calc(var(--px) * 14); letter-spacing: var(--px); color: var(--glow); }
+      #superName { margin-top: calc(var(--px) * 6) !important; padding-bottom: calc(var(--px) * 10); border-bottom: 1px solid var(--glow); font-family: Galmuri11, monospace; font-size: calc(var(--px) * 33); line-height: calc(var(--px) * 40); letter-spacing: calc(var(--px) * 0.5); color: #eef0f3; white-space: nowrap; }
+      #superLine { margin-top: calc(var(--px) * 10) !important; font-family: Galmuri9, monospace; font-size: calc(var(--px) * 10); line-height: calc(var(--px) * 16); color: var(--dim); word-break: keep-all; }
+      html.super-cut #skills, html.super-cut #spiritSlots, html.super-cut #spiritSummary, html.super-cut #energyHud, html.super-cut #minimap, html.super-cut #stageInfo, html.super-cut #settingsToggle, html.super-cut #itemsToggle, html.super-cut #accountBar, html.super-cut #healthHud, html.super-cut #bossHud, html.super-cut #enemyInfo, html.super-cut #hint, html.super-cut #center, html.super-cut #roomLabel, html.super-cut #pickHint, html.super-cut #formTag, html.super-cut #callBubble { visibility: hidden; }
+      /* 바닥 아이템 이름표: 게임 픽셀 격자에 맞춘다 */
+      #pickHint { position: absolute; transform: translate(-50%, -100%); margin: 0; padding: 0 calc(var(--px) * 3); background: #08090bbd; font-family: Galmuri9, monospace; font-size: calc(var(--px) * 10); line-height: calc(var(--px) * 12); color: var(--dim); white-space: nowrap; }
+      #pickHint[hidden] { display: none; }
+      #pickHint.is-near { color: var(--accent); }
       #skillAim { position: fixed; width: 28px; height: 28px; border: 1px solid #f4c790; border-radius: 50%; background: #e0a45825; pointer-events: none; }
       .map-room.is-boss { border-color: #e79c98; }
       .map-room.is-rest { background: #51736b; }
@@ -688,6 +723,8 @@
         <p id="formTag"></p>
         <p id="callBubble"></p>
         <p id="roomLabel" hidden></p>
+        <p id="pickHint" hidden></p>
+        <div id="superCut" hidden><p id="superLabel"></p><p id="superName"></p><p id="superLine"></p></div>
         <aside id="enemyInfo" hidden aria-label="적 정보"><strong id="enemyInfoName"></strong><span id="enemyInfoMeta"></span><span id="enemyInfoBar"><span id="enemyInfoFill"></span></span><p id="enemyInfoText"></p></aside>
       </div>
     </div>
@@ -698,6 +735,7 @@
     </div>
     <canvas id="healthHud" width="124" height="16" hidden aria-label="체력"></canvas>
     <button id="settingsToggle" type="button" hidden aria-label="게임 설정 열기">설정</button>
+    <button id="itemsToggle" type="button" hidden title="아이템 (I)">아이템</button>
     <p id="stageInfo" hidden></p>
     <div id="spiritSlots" hidden aria-label="장착 정령"></div>
     <p id="spiritSummary" hidden></p>
@@ -737,11 +775,18 @@
       <form class="admin-filters" id="adminSearch"><input id="playerSearch" aria-label="플레이어 아이디 검색" placeholder="아이디 검색" maxlength="20" pattern="[A-Za-z0-9_]*" /><select id="playerOrder" aria-label="플레이어 정렬"><option value="created_at">최근 가입</option><option value="last_seen">최근 접속</option><option value="play_seconds">플레이 시간</option><option value="max_stage">최고 스테이지</option></select><button type="submit">조회</button><button id="refreshAdmin" type="button">새로고침</button></form>
       <div class="table-scroll"><table><thead><tr><th>아이디 / 상태</th><th>플레이 시간</th><th>현재 / 최고</th><th>가입일 (한국)</th><th>최근 접속 (한국)</th><th>계정 관리</th></tr></thead><tbody id="playerRows"></tbody></table></div>
       <div class="admin-paging"><button id="prevPlayers" type="button">이전</button><span id="playerPage"></span><button id="nextPlayers" type="button">다음</button></div>
+      <section id="guestSection" hidden>
+        <h3>게스트</h3>
+        <p><small>브라우저 단위 익명 기록입니다. 같은 사람도 기기가 다르거나 기록을 지우면 새 게스트로 잡힙니다.</small></p>
+        <div class="table-scroll"><table><thead><tr><th>게스트</th><th>플레이 시간</th><th>현재 / 최고</th><th>접속</th><th>첫 방문 (한국)</th><th>최근 접속 (한국)</th></tr></thead><tbody id="guestRows"></tbody></table></div>
+        <div class="admin-paging"><button id="prevGuests" type="button">이전</button><span id="guestPage"></span><button id="nextGuests" type="button">다음</button></div>
+      </section>
       <h3>전체 스테이지 · 테스트 이동</h3><p><small>스테이지를 누르면 바로 입장합니다. 테스트 진행은 실제 저장 기록과 분리되며, 콘솔에서 돌아갈 수 있습니다.</small></p>
       <div id="adminStages"></div>
       <h3>최근 운영 기록</h3><ul id="adminAudit"></ul>
       <p id="adminMessage" class="account-message" role="status" aria-live="polite"></p>
     </dialog>
+    <dialog id="itemDialog" tabindex="-1" aria-labelledby="itemTitle"><div class="item-heading"><h2 id="itemTitle">아이템</h2><button id="itemClose" type="button">닫기 · I</button></div><dl id="itemStats"></dl><ul id="itemList"></ul></dialog>
     <dialog id="rewardDialog" aria-labelledby="rewardTitle"><h2 id="rewardTitle"></h2><p id="rewardDescription"></p><div id="rewardChoices"></div></dialog>
     <dialog id="settings" aria-labelledby="settingsTitle">
       <form method="dialog">
@@ -764,6 +809,7 @@
     <button id="attack" type="button" hidden aria-label="공격">공격</button>
     <button id="joystick" type="button" tabindex="-1" hidden aria-label="이동 조이스틱: 원하는 방향으로 드래그"><span id="joystickKnob"></span><span id="joystickLabel">이동</span></button>
     <div id="skills" hidden>
+      <button type="button" id="comboSkill" hidden><span>F</span><span class="skill-name"></span></button>
       <button type="button" data-skill="q"><span>Q</span><span class="skill-name"></span></button>
       <button type="button" data-skill="w"><span>W</span><span class="skill-name"></span></button>
       <button type="button" data-skill="e"><span>E</span><span class="skill-name"></span></button>

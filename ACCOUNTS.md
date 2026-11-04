@@ -9,6 +9,8 @@ Supabase 프로젝트 `pcjewnxnbciofdmveeto` (서울)에서 Auth, Postgres, `jam
 - 시간: 화면이 보이고 게임 진행 중인 시간만 누적한다. 설정/보상/계정/관리자 창과 타이틀/클리어/쓰러짐은 제외한다. 서버는 세션별 누적값을 중복 없이 더하고 경과 시간으로 상한을 제한한다. 클라이언트 게임이므로 경쟁용 서버 권위 판정/치트 방지는 범위에 없다.
 - 운영: 가입자 수, 한국 시간 기준 신규/방문, 최근 60초 접속, 총 시간, 유저 검색·정렬·진행도, 스테이지별 인원, 제한/해제와 감사 기록. 스테이지 테스트는 별도 기기 저장 영역을 사용하며 실제 클라우드 기록에 쓰지 않는다.
 
+- 게스트: 로그인 없이 플레이한 기록을 관리자 콘솔에서 본다. 브라우저에서 만든 랜덤 ID, 스테이지, 플레이 시간, 접속 횟수만 받는다. IP·기기 정보는 저장하지 않으며(횟수 제한용 해시뿐), 15초마다 그리고 탭을 숨길 때 보낸다. 시간은 세션 누적값이고 세션이 시작된 뒤 지난 시간을 넘지 못한다. 개발 서버(localhost)의 플레이는 보내지 않는다.
+
 ## 로컬 실행
 
 `.env.example`을 `.env.local`로 복사하고 `SUPABASE_URL`을 설정한 뒤 `npm run dev`를 실행한다. Vite는 계정 API를 Supabase Edge Function으로 프록시한다. Vercel은 `api/account.js`를 통해 같은 출처의 HttpOnly/Secure 세션 쿠키를 전달한다. 서버 키는 Supabase 함수 환경에서만 읽는다.
@@ -21,4 +23,4 @@ Supabase 프로젝트 `pcjewnxnbciofdmveeto` (서울)에서 Auth, Postgres, `jam
 
 ## 변경 배포
 
-스키마는 `supabase/migrations`, API는 `supabase/functions/jamsildo-account`에 있다. Edge Function은 자체 쿠키 인증을 수행하므로 플랫폼 JWT 검증은 비활성화하고 배포한다. API 파일을 바꾸면 Edge Function도 재배포해야 한다. Vercel 환경변수에는 공개 프로젝트 주소 `SUPABASE_URL`만 필요하다.
+스키마는 `supabase/migrations`, API는 `supabase/functions/jamsildo-account`에 있다. Edge Function은 자체 쿠키 인증을 수행하므로 플랫폼 JWT 검증은 비활성화하고 배포한다. API 파일을 바꾸면 Edge Function도 재배포해야 한다. 마이그레이션을 먼저 적용하고 Edge Function을 배포한다. 게스트 표가 없으면 콘솔은 게스트 영역만 숨기고 나머지는 그대로 열린다. Vercel 환경변수에는 공개 프로젝트 주소 `SUPABASE_URL`만 필요하다.

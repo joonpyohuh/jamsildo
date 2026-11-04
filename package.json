@@ -13,7 +13,11 @@
     "test:accounts": "node tests/accounts.cjs",
     "test:admin": "node tests/admin-cheats.cjs",
     "test:controls": "node tests/controls.cjs",
-    "assets:build": "node scripts/build-assets.cjs"
+    "test:items": "node tests/items.cjs",
+    "test:supers": "node tests/supers.cjs",
+    "test:guests": "node tests/guests.cjs",
+    "assets:build": "node scripts/build-assets.cjs",
+    "assets:vfx": "node scripts/build-vfx-pack.cjs"
   },
   "devDependencies": {
     "typescript": "^5.9.3",

@@ -11,7 +11,9 @@ const path = require('node:path');
   try {
     const page = await browser.newPage();
     await page.goto('http://localhost:5173');
-    for (const asset of manifest.assets) {
+    // ASSET_ONLY=접두어: 그 이름의 시트 조각만 다시 만든다 (나머지 산출물은 건드리지 않는다)
+    const only = process.env.ASSET_ONLY;
+    for (const asset of only ? [] : manifest.assets) {
       const encoded = await page.evaluate(async asset => {
         const image = new Image();
         image.src = `/game_assets/${asset.path}`;
@@ -52,6 +54,8 @@ const path = require('node:path');
     const cellOf = (sheet, cell) => ({ path: sheet.path, columns: sheet.columns, rows: sheet.rows, row: cell.row, column: cell.column });
     for (const sheet of extension.evolution_sheets) for (const cell of sheet.cells) {
       jobs.push({ ...cellOf(sheet, cell), id: `evo_${sheet.element}_${cell.stage}`, max: cell.stage === 'upper' ? 36 : 28, gapSplit: true });
+      // 초필살기 컷인: 세나 옆에 나란히 서므로 늘리지 않고 큰 크기로 따로 뽑는다
+      jobs.push({ ...cellOf(sheet, cell), id: `cut_evo_${sheet.element}_${cell.stage}`, max: 76, gapSplit: true });
     }
     for (const sheet of extension.spirit_effect_sheets) for (const cell of sheet.cells) {
       const id = `fx_${sheet.element}_${cell.weapon ?? cell.variation}`;
@@ -61,7 +65,7 @@ const path = require('node:path');
       jobs.push({ ...cellOf(sheet, cell), id: cell.effect_id, max: cell.monster_id.startsWith('boss') ? 120 : 64 });
     }
     await fs.mkdir(path.join(output, 'fx'), { recursive: true });
-    for (const job of jobs) {
+    for (const job of only ? jobs.filter(job => job.id.startsWith(only)) : jobs) {
       const encoded = await page.evaluate(async job => {
         const image = new Image();
         image.src = `/game_assets/${job.path}`;
