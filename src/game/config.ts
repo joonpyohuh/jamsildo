@@ -1,6 +1,6 @@
-/** 내부 해상도. 확대 비율은 브라우저에 맞추고 도트 필터를 유지한다. */
-export const VIEW_W = 480;
-export const VIEW_H = 270;
+/** 내부 해상도 16:9 고정. 화면에는 정수 배율로만 키운다 (main.ts fit). */
+export const VIEW_W = 640;
+export const VIEW_H = 360;
 
 /**
  * 3/4 시점 방.

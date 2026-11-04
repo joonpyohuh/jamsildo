@@ -1,4 +1,4 @@
-#accountBar { position:fixed; right:max(12px,env(safe-area-inset-right)); top:max(52px,calc(env(safe-area-inset-top) + 46px)); z-index:20; display:flex; align-items:flex-end; flex-direction:column; gap:4px; max-width:220px; font:11px Galmuri11,monospace; }
+#accountBar { position:fixed; right:calc(var(--sr) + 8px); top:calc(var(--st) + 8px); z-index:20; display:flex; align-items:flex-end; flex-direction:column; gap:4px; max-width:220px; font:11px Galmuri11,monospace; }
 #accountToggle { padding:7px 10px; color:var(--pale); border:1px solid #45404a; background:#121218ed; font:inherit; cursor:pointer; }
 #saveStatus { color:#b4b0ac; text-align:right; max-width:200px; background:#08090be6; padding:3px 5px; }
 #saveStatus[data-error=true] { color:#ffb49f; }
@@ -43,3 +43,5 @@
 
 /* 타이틀에서 연 창: 지금 하려는 동작(가입/로그인)의 버튼을 강조색으로 */
 .account-actions button.is-primary { border-color: var(--accent, #e0a458); color: var(--accent, #e0a458); }
+
+#accountBar[hidden] { display:none; }

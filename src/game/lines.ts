@@ -29,7 +29,7 @@ export const OPENING: readonly Talk[] = [
   { who: 'yunseul', text: '잠깐, 내 손에 있는 이 무기는...?', face: 'troubled' },
   { who: 'sena', text: '나야, 세나. 네 손에 든 무기가 나라고. 적에 맞춰 단검, 검, 활, 너클로 변해.', face: 'flat' },
   { who: 'sena', text: '공격은 스페이스바(Space)를 꾹 눌러. 휴대폰에선 왼쪽 아래 공격 버튼을 누르면 돼.', face: 'flat' },
-  { who: 'sena', text: '휴대폰은 오른쪽 조이스틱으로 이동해. 컴퓨터는 바닥을 클릭하면 돼. 움직이면서 공격해. 적은 내가 알아서 노릴게.', face: 'smile' },
+  { who: 'sena', text: '휴대폰은 왼쪽 조이스틱으로 이동해. 컴퓨터는 바닥을 클릭하면 돼. 움직이면서 공격해. 적은 내가 알아서 노릴게.', face: 'smile' },
 ];
 
 /** 불의 정령을 얻었을 때 */

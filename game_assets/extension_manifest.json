@@ -1,0 +1,91 @@
+{
+  "project": "jamsildo",
+  "version": "expansion_v1",
+  "source_document": "잠실도_기획서_v3.pdf",
+  "type": "pixel_art_game_asset_expansion",
+  "sheet_count": 16,
+  "panel_counts": {"evolved_spirit_forms": 12, "monster_signature_vfx": 19, "spirit_skill_vfx": 24, "total": 55},
+  "usage_notes": [
+    "Sprite atlases have varying pixel dimensions; use fractional cell coordinates based on each sheet's rows/columns, and visually verify margins before runtime cropping.",
+    "These are static VFX keyframe illustrations, not playable timed animations. Effect timing, hitboxes, anchoring, rotation and blend mode remain implementation tasks.",
+    "All six spirit medium/upper forms are visual proposals; their canonical names and evolution branches remain unconfirmed in the source design document.",
+    "Monster signature attacks are NEW design proposals, because the source document names monsters but does not define their individual attacks.",
+    "The five named elemental spirits' weapon-linked abilities are based on the source design document's skill table. Chaos has random outcomes; its four effect panels are visual examples, not fixed weapon mappings."
+  ],
+  "coordinate_system": {"row_index_base": 0, "column_index_base": 0, "cell_order": "left_to_right_top_to_bottom"},
+  "evolution_sheets": [
+    {"spirit_id": "spirit_fire_mer", "element": "fire", "path": "evolution_sheets/evolution_fire_mer_medium_upper.png", "columns": 2, "rows": 1, "cells": [{"stage":"medium","row":0,"column":0},{"stage":"upper","row":0,"column":1}]},
+    {"spirit_id": "spirit_water_kui", "element": "water", "path": "evolution_sheets/evolution_water_kui_medium_upper.png", "columns": 2, "rows": 1, "cells": [{"stage":"medium","row":0,"column":0},{"stage":"upper","row":0,"column":1}]},
+    {"spirit_id": "spirit_wood_maemae", "element": "wood", "path": "evolution_sheets/evolution_wood_maemae_medium_upper.png", "columns": 2, "rows": 1, "cells": [{"stage":"medium","row":0,"column":0},{"stage":"upper","row":0,"column":1}]},
+    {"spirit_id": "spirit_dark_kai", "element": "dark", "path": "evolution_sheets/evolution_dark_kai_medium_upper.png", "columns": 2, "rows": 1, "cells": [{"stage":"medium","row":0,"column":0},{"stage":"upper","row":0,"column":1}]},
+    {"spirit_id": "spirit_light_luna", "element": "light", "path": "evolution_sheets/evolution_light_luna_medium_upper.png", "columns": 2, "rows": 1, "cells": [{"stage":"medium","row":0,"column":0},{"stage":"upper","row":0,"column":1}]},
+    {"spirit_id": "spirit_chaos_hidden_unnamed", "element": "chaos", "path": "evolution_sheets/evolution_chaos_hidden_medium_upper.png", "columns": 2, "rows": 1, "cells": [{"stage":"medium","row":0,"column":0},{"stage":"upper","row":0,"column":1}]}
+  ],
+  "monster_effect_sheets": [
+    {"chapter": 1, "path": "effects/monsters/effects_monsters_ch01_atlas_5.png", "columns": 2, "rows": 3, "cells": [
+      {"monster_id":"enemy_ch01_normal_annoyance","skill_name_ko":"끈적한 둔화 장판","effect_id":"vfx_enemy_ch01_annoyance_slow_pool","row":0,"column":0},
+      {"monster_id":"enemy_ch01_normal_exhaustion","skill_name_ko":"중력 내려찍기","effect_id":"vfx_enemy_ch01_exhaustion_gravity_slam","row":0,"column":1},
+      {"monster_id":"enemy_ch01_normal_depressed_mood","skill_name_ko":"우울의 비","effect_id":"vfx_enemy_ch01_depressed_mood_rain","row":1,"column":0},
+      {"monster_id":"boss_ch01_stage03_soggy_blanket","skill_name_ko":"젖은 이불 휩쓸기","effect_id":"vfx_boss_ch01_soggy_blanket_sweep","row":1,"column":1},
+      {"monster_id":"boss_ch01_stage05_apathy","skill_name_ko":"공허 중력 소용돌이","effect_id":"vfx_boss_ch01_apathy_void_vortex","row":2,"column":0}
+    ]},
+    {"chapter": 2, "path": "effects/monsters/effects_monsters_ch02_atlas_5.png", "columns": 2, "rows": 3, "cells": [
+      {"monster_id":"enemy_ch02_normal_mirror_shards","skill_name_ko":"거울 파편 산탄","effect_id":"vfx_enemy_ch02_mirror_shard_burst","row":0,"column":0},
+      {"monster_id":"enemy_ch02_normal_whispers","skill_name_ko":"속삭임 파동","effect_id":"vfx_enemy_ch02_whisper_wave","row":0,"column":1},
+      {"monster_id":"enemy_ch02_normal_stares","skill_name_ko":"시선 광선","effect_id":"vfx_enemy_ch02_stare_beam","row":1,"column":0},
+      {"monster_id":"boss_ch02_stage03_locked_apartment_door","skill_name_ko":"봉쇄 사슬","effect_id":"vfx_boss_ch02_locked_door_chains","row":1,"column":1},
+      {"monster_id":"boss_ch02_stage05_distorted_self_reflection","skill_name_ko":"거울상 파편 폭발","effect_id":"vfx_boss_ch02_reflection_explosion","row":2,"column":0}
+    ]},
+    {"chapter": 3, "path": "effects/monsters/effects_monsters_ch03_atlas_5.png", "columns": 2, "rows": 3, "cells": [
+      {"monster_id":"enemy_ch03_normal_laughter_echo","skill_name_ko":"비웃음 메아리","effect_id":"vfx_enemy_ch03_laughter_echo","row":0,"column":0},
+      {"monster_id":"enemy_ch03_normal_group_chat_alert","skill_name_ko":"알림 충격파","effect_id":"vfx_enemy_ch03_chat_alert_pulse","row":0,"column":1},
+      {"monster_id":"enemy_ch03_normal_turned_back_shadow","skill_name_ko":"등 돌린 잔상","effect_id":"vfx_enemy_ch03_turned_back_trails","row":1,"column":0},
+      {"monster_id":"boss_ch03_stage03_group_center","skill_name_ko":"배제의 고리","effect_id":"vfx_boss_ch03_group_center_ring","row":1,"column":1},
+      {"monster_id":"boss_ch03_stage05_they_merged","skill_name_ko":"합쳐진 군중 충격파","effect_id":"vfx_boss_ch03_merged_crowd_wave","row":2,"column":0}
+    ]},
+    {"chapter": 4, "path": "effects/monsters/effects_monsters_ch04_atlas_4.png", "columns": 2, "rows": 2, "cells": [
+      {"monster_id":"enemy_ch04_normal_comparing_voices","skill_name_ko":"비교의 파동","effect_id":"vfx_enemy_ch04_comparing_voice_wave","row":0,"column":0},
+      {"monster_id":"enemy_ch04_normal_closed_bedroom_door","skill_name_ko":"방문 차단 장벽","effect_id":"vfx_enemy_ch04_closed_door_barrier","row":0,"column":1},
+      {"monster_id":"boss_ch04_stage03_empty_seat_at_table","skill_name_ko":"빈자리 잔향","effect_id":"vfx_boss_ch04_empty_seat_echo","row":1,"column":0},
+      {"monster_id":"boss_ch04_stage05_young_yoonseul","skill_name_ko":"환영 무기 난무","effect_id":"vfx_boss_ch04_young_yoonseul_phantom_arsenal","row":1,"column":1}
+    ]}
+  ],
+  "spirit_effect_sheets": [
+    {"spirit_id":"spirit_fire_mer","element":"fire","path":"effects/spirits/vfx_spirit_fire_mer_weapon_matrix.png","columns":2,"rows":2,"cells":[
+      {"weapon":"dagger","skill_name_ko":"연속 화염 찌르기","row":0,"column":0},
+      {"weapon":"longsword","skill_name_ko":"불꽃 회전베기","row":0,"column":1},
+      {"weapon":"bow","skill_name_ko":"폭발 화살","row":1,"column":0},
+      {"weapon":"knuckle","skill_name_ko":"화염 충격파","row":1,"column":1}
+    ]},
+    {"spirit_id":"spirit_water_kui","element":"water","path":"effects/spirits/vfx_spirit_water_kui_weapon_matrix.png","columns":2,"rows":2,"cells":[
+      {"weapon":"dagger","skill_name_ko":"물살 돌진","row":0,"column":0},
+      {"weapon":"longsword","skill_name_ko":"파도 베기","row":0,"column":1},
+      {"weapon":"bow","skill_name_ko":"관통 물화살","row":1,"column":0},
+      {"weapon":"knuckle","skill_name_ko":"물대포 밀쳐내기","row":1,"column":1}
+    ]},
+    {"spirit_id":"spirit_wood_maemae","element":"wood","path":"effects/spirits/vfx_spirit_wood_maemae_weapon_matrix.png","columns":2,"rows":2,"cells":[
+      {"weapon":"dagger","skill_name_ko":"덩굴 묶기","row":0,"column":0},
+      {"weapon":"longsword","skill_name_ko":"가시밭 소환","row":0,"column":1},
+      {"weapon":"bow","skill_name_ko":"씨앗 화살 (속박)","row":1,"column":0},
+      {"weapon":"knuckle","skill_name_ko":"나무 방패","row":1,"column":1}
+    ]},
+    {"spirit_id":"spirit_dark_kai","element":"dark","path":"effects/spirits/vfx_spirit_dark_kai_weapon_matrix.png","columns":2,"rows":2,"cells":[
+      {"weapon":"dagger","skill_name_ko":"그림자 순간이동","row":0,"column":0},
+      {"weapon":"longsword","skill_name_ko":"어둠 장막","row":0,"column":1},
+      {"weapon":"bow","skill_name_ko":"추적 그림자 화살","row":1,"column":0},
+      {"weapon":"knuckle","skill_name_ko":"그림자 끌어당기기","row":1,"column":1}
+    ]},
+    {"spirit_id":"spirit_light_luna","element":"light","path":"effects/spirits/vfx_spirit_light_luna_weapon_matrix.png","columns":2,"rows":2,"cells":[
+      {"weapon":"dagger","skill_name_ko":"빛 연타","row":0,"column":0},
+      {"weapon":"longsword","skill_name_ko":"빛기둥","row":0,"column":1},
+      {"weapon":"bow","skill_name_ko":"빛 관통 화살","row":1,"column":0},
+      {"weapon":"knuckle","skill_name_ko":"회복 파동","row":1,"column":1}
+    ]},
+    {"spirit_id":"spirit_chaos_hidden_unnamed","element":"chaos","path":"effects/spirits/vfx_spirit_chaos_hidden_random_set.png","columns":2,"rows":2,"randomized":true,"cells":[
+      {"variation":"fire_water_collision","row":0,"column":0},
+      {"variation":"wood_lightning_burst","row":0,"column":1},
+      {"variation":"prismatic_shadow_ray","row":1,"column":0},
+      {"variation":"cosmic_chaos_ring","row":1,"column":1}
+    ]}
+  ]
+}

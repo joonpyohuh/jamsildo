@@ -1,12 +1,14 @@
 /**
  * 오프닝 배경. 정적인 부분은 Pix로 한 번만 굽고, 움직이는 건 씬에서 그 위에 얹는다.
- * 화면 = 480×270, 위아래 26px은 레터박스 (그림 영역 y 26..244).
+ * 장면 좌표는 높이 270 기준. 640×360 화면에는 45px 내려 그리고, 그림 영역은 y 6..264 (2.48:1 시네마스코프).
  */
 import { VIEW_W } from '../config';
 import { Pix, bayer, hex, ramp, rampAt, type Ramp } from './pix';
 import { ALARM, CUP, PILLS } from './actors';
 
-export const LB = 26;
+export const LB = 6;
+/** 장면을 화면 세로 가운데에 놓는 오프셋 */
+export const OY = 45;
 export const PIC_TOP = LB;
 export const PIC_BOT = 270 - LB;
 
@@ -25,14 +27,14 @@ function rng(seed: number): () => number {
 
 export const ROOM = {
   floor: 212,
-  window: { x: 262, y: 66, w: 84, h: 92 },
-  gapX: 304,
-  bed: { x: 104, w: 196, top: 178 },
-  pillow: { x: 108, y: 170 },
-  head: { x: 112, y: 165 },
-  stand: { x: 40, w: 46, top: 182 },
-  clock: { x: 56, y: 173 },
-  door: { x: 404, y: 98, w: 44 },
+  window: { x: 342, y: 66, w: 84, h: 92 },
+  gapX: 384,
+  bed: { x: 184, w: 196, top: 178 },
+  pillow: { x: 188, y: 170 },
+  head: { x: 192, y: 165 },
+  stand: { x: 120, w: 46, top: 182 },
+  clock: { x: 136, y: 173 },
+  door: { x: 484, y: 98, w: 44 },
 } as const;
 
 /** 방 배경. light = 커튼 틈 빛줄기 세기 (0..1) */
@@ -97,10 +99,10 @@ export function buildRoom(light: number): HTMLCanvasElement {
   p.poly([[D.x + 6, D.y + 10], [D.x + 16, D.y + 8], [D.x + 20, D.y + 40], [D.x + 4, D.y + 44]], hex('#0b0c10'));
 
   // 바닥의 것들: 벗어둔 옷 무더기, 빈 컵, 약통
-  p.poly([[330, R.floor + 8], [338, R.floor + 1], [352, R.floor], [366, R.floor + 3], [372, R.floor + 9]], hex('#16181f'));
-  p.poly([[336, R.floor + 7], [344, R.floor + 3], [356, R.floor + 3], [362, R.floor + 7]], hex('#1d2029'));
-  p.stamp(CUP, 380, R.floor + 3);
-  p.stamp(PILLS, 314, R.floor + 3);
+  p.poly([[410, R.floor + 8], [418, R.floor + 1], [432, R.floor], [446, R.floor + 3], [452, R.floor + 9]], hex('#16181f'));
+  p.poly([[416, R.floor + 7], [424, R.floor + 3], [436, R.floor + 3], [442, R.floor + 7]], hex('#1d2029'));
+  p.stamp(CUP, 460, R.floor + 3);
+  p.stamp(PILLS, 394, R.floor + 3);
 
   // 협탁 + 알람시계
   const S = R.stand;
@@ -125,11 +127,11 @@ export function buildRoom(light: number): HTMLCanvasElement {
   // 이불: 몸 위로 불룩, 오른쪽 끝에서 흘러내림
   const blanket = ramp('#1a1f2c', '#222839', '#2b3346', '#36405a');
   const top = (x: number): number => {
-    const u = (x - 134) / 150;
+    const u = (x - 214) / 150;
     const body = Math.sin(Math.max(0, Math.min(1, u)) * Math.PI) * 9;
     return B.top - 2 - body;
   };
-  p.each(132, B.top - 14, B.w - 24, 46, (x, y) => {
+  p.each(212, B.top - 14, B.w - 24, 46, (x, y) => {
     const t = top(x);
     if (y < t) return null;
     const hang = x > B.x + B.w - 30 ? B.top + 24 : B.top + 12;
@@ -138,29 +140,29 @@ export function buildRoom(light: number): HTMLCanvasElement {
     return rampAt(blanket, 0.85 - shade, x, y);
   });
   // 이불 접힌 가장자리
-  p.each(132, B.top - 14, 5, 40, (x, y) => (y >= top(x) && y < B.top + 12 ? hex('#3a4560') : null));
+  p.each(212, B.top - 14, 5, 40, (x, y) => (y >= top(x) && y < B.top + 12 ? hex('#3a4560') : null));
 
   // 빛줄기: 커튼 틈 → 침대 위 → 바닥
   if (light > 0) {
     const pale = hex('#7d8aa2');
     const paler = hex('#a7b3c8');
     const src: readonly [number, number] = [R.gapX, W.y + 6];
-    const poly: readonly (readonly [number, number])[] = [[src[0] - 1, src[1]], [src[0] + 2, src[1]], [292, PIC_BOT], [214, PIC_BOT]];
+    const poly: readonly (readonly [number, number])[] = [[src[0] - 1, src[1]], [src[0] + 2, src[1]], [372, PIC_BOT], [294, PIC_BOT]];
     p.poly(poly, (x, y) => {
       const v = (y - src[1]) / (PIC_BOT - src[1]);
       const d = light * (0.28 - v * 0.18);
       return d > bayer(x, y) ? (v < 0.25 ? paler : pale) : null;
     });
     // 바닥에 닿은 자리
-    p.ellipse(250, R.floor + 18, 44, 7, pale, 0.22 * light);
-    p.ellipse(250, R.floor + 18, 26, 4, paler, 0.3 * light);
+    p.ellipse(330, R.floor + 18, 44, 7, pale, 0.22 * light);
+    p.ellipse(330, R.floor + 18, 26, 4, paler, 0.3 * light);
   }
   return p.commit();
 }
 
 /* ═══════════════ 잠실도 전경 (파노라마, 시차 레이어) ═══════════════ */
 
-export const WORLD_W = 1040;
+export const WORLD_W = 1200;
 export const HORIZON = 150;
 
 export interface PanoLayers {
@@ -329,8 +331,8 @@ export const BR = {
   river: 158,
   bank: 196,
   foot: 216,
-  pier: { x: 34, w: 62 },
-  sun: { x: 404, y: 150 },
+  pier: { x: 114, w: 62 },
+  sun: { x: 484, y: 150 },
 } as const;
 
 export function buildBridge(L: BridgeLook): { back: HTMLCanvasElement; front: HTMLCanvasElement } {
@@ -406,14 +408,14 @@ export function buildBridge(L: BridgeLook): { back: HTMLCanvasElement; front: HT
   p.rect(P.x - 4, BR.deckBot, P.w + 8, 6, L.deck[1] ?? 0); // 교좌
   p.dith(P.x, BR.river - 4, P.w, 10, hex(L.stain), 0.5); // 물때
   // 오른쪽 먼 교각
-  p.vramp(452, BR.deckBot, 30, BR.river - BR.deckBot + 4, ramp('#0e1018', '#141824'));
+  p.vramp(572, BR.deckBot, 30, BR.river - BR.deckBot + 4, ramp('#0e1018', '#141824'));
 
   // 앞쪽 갈대 (인물보다 앞)
   const front = new Pix(VIEW_W, 270);
   const rr = rng(61);
-  for (let i = 0; i < 160; i += 1) {
+  for (let i = 0; i < 215; i += 1) {
     const bx = Math.floor(rr() * VIEW_W);
-    if (bx > 180 && bx < 380 && rr() < 0.85) continue; // 인물 자리는 비운다
+    if (bx > 260 && bx < 460 && rr() < 0.85) continue; // 인물 자리는 비운다
     const h = 8 + Math.floor(rr() ** 1.5 * 40);
     const lean = (rr() - 0.5) * 8;
     front.line(bx, PIC_BOT, bx + lean, PIC_BOT - h, hex('#04050a'));

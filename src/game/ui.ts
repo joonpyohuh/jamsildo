@@ -110,7 +110,7 @@ export class Ui {
       state.equipped.forEach((slot,i)=>{
         const button=document.createElement('button');button.type='button';button.dataset.spirit=String(i);button.className=i===state.active?'is-active':'';
         button.setAttribute('aria-label',`${SPIRIT_NAMES[slot.element]} ${slot.tier===1?'하급':slot.tier===2?'중급':'상급'} · 선택`);button.setAttribute('aria-pressed',String(i===state.active));
-        const image=new Image();image.src=`/sprites/${SPIRIT_ASSETS[slot.element]}.png`;image.alt='';
+        const image=new Image();image.src=slot.tier>=3?`/sprites/fx/evo_${slot.element}_upper.png`:slot.tier===2?`/sprites/fx/evo_${slot.element}_medium.png`:`/sprites/${SPIRIT_ASSETS[slot.element]}.png`;image.alt='';
         const badge=document.createElement('span');badge.textContent=['Ⅰ','Ⅱ','Ⅲ'][slot.tier-1]!;button.append(image,badge);slots.append(button);
       });
     }

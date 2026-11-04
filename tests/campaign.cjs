@@ -5,7 +5,7 @@ const {tmpdir}=require('node:os');
 const {join}=require('node:path');
 const fs=require('node:fs/promises');
 (async()=>{
- const browser=await chromium.launch();
+ const browser=await chromium.launch(process.env.CHROME_PATH?{executablePath:process.env.CHROME_PATH}:{});
  const output=join(tmpdir(),'jamsildo-campaign');await fs.mkdir(output,{recursive:true});
  try{
   const page=await browser.newPage({viewport:{width:1440,height:900}});
@@ -29,19 +29,19 @@ const fs=require('node:fs/promises');
    }
    const random=Math.random;try{Math.random=()=>0;const stage=generateStage(20);if(!stage.boss)throw Error('fallback failed');}finally{Math.random=random;}
    return {maps,art:ART.size};
-  });assert.equal(topology.maps,1000);assert.equal(topology.art,25);console.log('PASS 1,000 maps: exactly one reachable boss, reciprocal doors, fallback, 25 sprites');
+  });assert.equal(topology.maps,1000);assert.equal(topology.art,104);console.log('PASS 1,000 maps: exactly one reachable boss, reciprocal doors, fallback, 104 sprites');
   const movement=await page.evaluate(async()=>{
    const {FLOOR,CX,CY}=await import('/src/game/config.ts');
    const g=window.__jamsildo;g.debugStage(1);g.enterRoom(g.stage.start,null);
-   const reset=()=>{Object.assign(g.player,{x:240,y:150,tx:240,ty:150,vx:0,vy:0,lungeT:0,effects:{},slowFactor:0.5});g.reverseTime=0;};
-   reset();g.input.move={x:1,y:0};g.updatePlayer(0.1);if(Math.abs(g.player.x-252.8)>0.001)throw Error('joystick speed');
-   reset();g.input.move={x:Math.SQRT1_2,y:Math.SQRT1_2};g.updatePlayer(0.1);if(Math.abs(Math.hypot(g.player.x-240,g.player.y-150)-12.8)>0.001)throw Error('diagonal speed boost');
-   reset();g.input.move={x:0.5,y:0};g.updatePlayer(0.1);if(Math.abs(g.player.x-246.4)>0.001)throw Error('analog movement');
-   reset();g.input.move={x:1,y:0};g.player.effects.slow=2;g.updatePlayer(0.1);if(Math.abs(g.player.x-246.4)>0.001)throw Error('slow effect ignored');
-   reset();g.reverseTime=2;g.updatePlayer(0.1);if(Math.abs(g.player.x-227.2)>0.001)throw Error('reversed controls');
-   reset();g.player.effects.root=2;g.updatePlayer(0.1);if(g.player.x!==240)throw Error('root effect ignored');
-   reset();g.input.move={x:0,y:0};g.player.moving=true;g.player.tx=300;g.updatePlayer(0.1);if(g.player.x!==240||g.player.moving)throw Error('joystick release drift');
-   reset();g.moveTo(300,150,false);g.updatePlayer(0.1);if(g.player.x<=240||g.input.move!==null)throw Error('click movement regression');
+   const reset=()=>{Object.assign(g.player,{x:320,y:180,tx:320,ty:180,vx:0,vy:0,lungeT:0,effects:{},slowFactor:0.5});g.reverseTime=0;};
+   reset();g.input.move={x:1,y:0};g.updatePlayer(0.1);if(Math.abs(g.player.x-335)>0.001)throw Error('joystick speed');
+   reset();g.input.move={x:Math.SQRT1_2,y:Math.SQRT1_2};g.updatePlayer(0.1);if(Math.abs(Math.hypot(g.player.x-320,g.player.y-180)-15)>0.001)throw Error('diagonal speed boost');
+   reset();g.input.move={x:0.5,y:0};g.updatePlayer(0.1);if(Math.abs(g.player.x-327.5)>0.001)throw Error('analog movement');
+   reset();g.input.move={x:1,y:0};g.player.effects.slow=2;g.updatePlayer(0.1);if(Math.abs(g.player.x-327.5)>0.001)throw Error('slow effect ignored');
+   reset();g.reverseTime=2;g.updatePlayer(0.1);if(Math.abs(g.player.x-305)>0.001)throw Error('reversed controls');
+   reset();g.player.effects.root=2;g.updatePlayer(0.1);if(g.player.x!==320)throw Error('root effect ignored');
+   reset();g.input.move={x:0,y:0};g.player.moving=true;g.player.tx=380;g.updatePlayer(0.1);if(g.player.x!==320||g.player.moving)throw Error('joystick release drift');
+   reset();g.moveTo(380,180,false);g.updatePlayer(0.1);if(g.player.x<=320||g.input.move!==null)throw Error('click movement regression');
    reset();g.room.cleared=false;g.player.x=FLOOR.x+g.player.r;g.input.move={x:-1,y:0};g.updatePlayer(0.5);if(g.player.x!==FLOOR.x+g.player.r)throw Error('wall collision ignored');
    let doors=0;
    for(const [dir,dx,dy]of [['w',-1,0],['e',1,0],['n',0,-1],['s',0,1]]){
@@ -51,7 +51,7 @@ const fs=require('node:fs/promises');
     g.player.y=dy<0?FLOOR.y+g.player.r:dy>0?FLOOR.y+FLOOR.h-g.player.r:CY;
     g.input.move={x:dx,y:dy};g.updatePlayer(0.5);g.checkExit();if(g.mode!=='slide')throw Error(`joystick cannot leave ${dir} door`);doors++;
    }
-   g.startRun();reset();g.player.x=415;g.player.y=245;g.input.move={x:0,y:1};
+   const {HOME}=await import('/src/game/opening.ts');g.startRun();reset();g.player.x=HOME.door.x+HOME.door.w/2;g.player.y=FLOOR.y+FLOOR.h-5;g.input.move={x:0,y:1};
    for(let i=0;i<20&&g.mode==='play';i++){g.updatePlayer(0.016);g.checkExit();}
    if(g.mode!=='slide')throw Error('joystick cannot leave home over multiple frames');
    g.input.move={x:0,y:0};return doors;
@@ -149,7 +149,7 @@ const fs=require('node:fs/promises');
    await page.evaluate(number=>{const g=window.__jamsildo;g.debugStage(number);g.enterRoom(g.stage.boss,null);g.player.invuln=10000;g.player.x=240;g.player.y=220;},number);
    await page.waitForTimeout(1150);await page.screenshot({path:join(output,`boss-${number}.png`)});
   }
-  const context=await browser.newContext({viewport:{width:390,height:844},isMobile:true,hasTouch:true});
+  const context=await browser.newContext({viewport:{width:844,height:390},isMobile:true,hasTouch:true});
   const mobile=await context.newPage();mobile.on('pageerror',e=>errors.push(e.message));
   await mobile.goto('http://localhost:5173');await mobile.waitForFunction(()=>!document.querySelector('#startGame').disabled);
   await mobile.evaluate(()=>{const g=window.__jamsildo;g.debugStage(4);g.enterRoom(g.stage.rooms.find(r=>r.kind==='spirit'),null);g.enemies.forEach(e=>g.faceEnemy(e,true));g.checkClear();g.player.x=g.spirit.x;g.player.y=g.spirit.y+10;g.updateSpirit(1);});
@@ -160,7 +160,7 @@ const fs=require('node:fs/promises');
   await mobile.locator('#skills button[data-skill="q"]:enabled').waitFor();
   const button=await mobile.locator('#skills button[data-skill="q"]').boundingBox();const cdp=await context.newCDPSession(mobile);
   await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{id:1,x:button.x+22,y:button.y+20}]});
-  await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{id:1,x:250,y:430}]});
+  await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{id:1,x:250,y:200}]});
   await mobile.locator('#skillAim:not([hidden])').waitFor();
   await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
   await mobile.waitForFunction(()=>window.__jamsildo.equipped[0].cooldowns.q>0);

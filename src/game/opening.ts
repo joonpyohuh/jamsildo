@@ -18,7 +18,7 @@ import {
   makeShade, yunseul, type YunseulPose,
 } from './cine/actors';
 import {
-  BR, BRIDGE_DAWN, BRIDGE_VIVID, DOOR, LB, PIC_BOT, PIC_TOP, ROOM, WORLD_W,
+  BR, BRIDGE_DAWN, BRIDGE_VIVID, DOOR, LB, OY, PIC_BOT, PIC_TOP, ROOM, WORLD_W,
   buildBridge, buildDoorFrame, buildMemory, buildPanorama, buildReeds, buildRoom, type PanoLayers,
 } from './cine/backdrops';
 
@@ -220,8 +220,8 @@ function dim(ctx: CanvasRenderingContext2D, k: number, color = '#000000'): void 
 }
 
 function letterbox(ctx: CanvasRenderingContext2D): void {
-  rect(ctx, 0, 0, VIEW_W, LB, '#000000');
-  rect(ctx, 0, PIC_BOT, VIEW_W, VIEW_H - PIC_BOT, '#000000');
+  rect(ctx, 0, 0, VIEW_W, LB + OY, '#000000');
+  rect(ctx, 0, PIC_BOT + OY, VIEW_W, VIEW_H - PIC_BOT - OY, '#000000');
 }
 
 /** 윤슬을 발밑 기준으로. 손 위치를 돌려준다. */
@@ -481,6 +481,7 @@ export class Opening {
     ctx.save();
     ctx.imageSmoothingEnabled = false;
     rect(ctx, 0, 0, VIEW_W, VIEW_H, '#000000');
+    ctx.translate(0, OY);
     if (this.shakeT > 0) ctx.translate(Math.round(rand(-2, 2)), Math.round(rand(-2, 2)));
     this.scene.draw(ctx, { t: this.t, li: this.li, lt: this.lt });
     for (const b of this.bits) {
@@ -567,7 +568,7 @@ export class Opening {
           return;
         }
         ctx.save();
-        ctx.translate(VIEW_W / 2, VIEW_H / 2 + 6);
+        ctx.translate(VIEW_W / 2, 141);
         ctx.scale(2, 2);
         ctx.translate(-ROOM.head.x - 34, -ROOM.head.y);
         this.drawRoom(ctx, c.t, true, eyesAt(c.t), toss, true);
@@ -618,7 +619,7 @@ export class Opening {
         }
         // "정령술": 강물에서 불·물·나무 빛이 떠오른다
         if (c.li === 1) {
-          const pts: readonly [number, string, string][] = [[118, '#ff8a2a', '#8a3a1a'], [244, '#5eb0ff', '#1e4a7a'], [372, '#8fdc6a', '#2a5a2a']];
+          const pts: readonly [number, string, string][] = [[158, '#ff8a2a', '#8a3a1a'], [322, '#5eb0ff', '#1e4a7a'], [492, '#8fdc6a', '#2a5a2a']];
           pts.forEach(([x, col, deep], i) => {
             const k = clamp((c.lt - 0.4 - i * 0.35) / 2.6, 0, 1);
             if (k <= 0 || k >= 1) return;
@@ -652,7 +653,7 @@ export class Opening {
         const f = Math.floor(c.t * 5) % 4;
         const spots: readonly [number, number, number, number][] = [
           // 그늘 번호, x, 발밑, 나타나는 시각
-          [0, 92, ROOM.floor + 6, 0.3], [1, 196, ROOM.floor + 14, 0.9], [2, 318, ROOM.floor + 4, 1.6], [0, 262, ROOM.floor + 24, 2.4],
+          [0, 172, ROOM.floor + 6, 0.3], [1, 276, ROOM.floor + 14, 0.9], [2, 398, ROOM.floor + 4, 1.6], [0, 342, ROOM.floor + 24, 2.4],
         ];
         spots.forEach(([k, x, foot, at]) => {
           const spr = this.unseen[k]?.[f];
@@ -664,7 +665,7 @@ export class Opening {
         const weight = clamp((c.t - 1) / 6, 0, 1) * 0.55 + (last ? 0.25 * clamp(c.lt / 1.2, 0, 1) : 0);
         ctx.save();
         ctx.beginPath();
-        ctx.ellipse(206, ROOM.bed.top - 4, 100, 18, 0, 0, TAU);
+        ctx.ellipse(286, ROOM.bed.top - 4, 100, 18, 0, 0, TAU);
         ctx.clip();
         dim(ctx, weight * 0.8, '#05060a');
         ctx.restore();
@@ -686,10 +687,10 @@ export class Opening {
         const B = this.bridgeDawn;
         ctx.drawImage(B.back, 0, 0);
         const foot = BR.foot;
-        const senaX = 334;
+        const senaX = 414;
         // 윤슬: 왼쪽에서 천천히 걸어 들어와 멈춘다
         const walkK = c.li === 0 ? clamp(c.lt / 3.4, 0, 1) : 1;
-        const yx = Math.round(-16 + easeOut(walkK) * 290);
+        const yx = Math.round(-16 + easeOut(walkK) * 370);
         const walking = walkK < 1;
         const legs = walking ? WALK[Math.floor((yx + 16) / 7) % WALK.length] ?? 'stand' : 'stand';
         const meet = c.li === 1 ? c.lt : c.li > 1 ? 99 : -1;
@@ -731,10 +732,10 @@ export class Opening {
 
     /* 씬 6 · 첫 대면: 색이 처음으로 선명해지고, 남보라 그늘들이 솟는다 */
     const shades: readonly { k: number; x: number; foot: number; at: number; dies: number }[] = [
-      { k: 0, x: 324, foot: BR.foot + 2, at: 0.2, dies: 0.95 }, // 가까운 그늘 → 단검
-      { k: 1, x: 168, foot: BR.foot, at: 0.5, dies: 1.5 }, // 몰려온 그늘 → 장검
-      { k: 2, x: 206, foot: BR.foot + 4, at: 0.7, dies: 1.5 },
-      { k: 3, x: 446, foot: BR.bank + 8, at: 1.0, dies: 2.6 }, // 멀리 → 활
+      { k: 0, x: 404, foot: BR.foot + 2, at: 0.2, dies: 0.95 }, // 가까운 그늘 → 단검
+      { k: 1, x: 248, foot: BR.foot, at: 0.5, dies: 1.5 }, // 몰려온 그늘 → 장검
+      { k: 2, x: 286, foot: BR.foot + 4, at: 0.7, dies: 1.5 },
+      { k: 3, x: 526, foot: BR.bank + 8, at: 1.0, dies: 2.6 }, // 멀리 → 활
     ];
     let fired: boolean[] = [];
     const s6: Scene = {
@@ -749,11 +750,11 @@ export class Opening {
         if (!this.reedsVivid) this.reedsVivid = buildReeds(BRIDGE_VIVID, 4);
         const B = this.bridgeVivid;
         ctx.drawImage(B.back, 0, 0);
-        ctx.drawImage(this.reedsVivid, 296, BR.foot - 38);
+        ctx.drawImage(this.reedsVivid, 376, BR.foot - 38);
         const foot = BR.foot;
         // 처음으로 그늘을 보고 한 걸음 물러선다
         const back = c.li === 0 ? easeOut(clamp((c.lt - 0.5) / 0.5, 0, 1)) : 1;
-        const yx = 274 - Math.round(back * 16);
+        const yx = 354 - Math.round(back * 16);
         const demo = c.li === 1 ? c.lt : c.li > 1 ? 99 : -1;
         let weapon: 'dagger' | 'sword' | 'bow' = 'dagger';
         if (demo >= 1.05 && demo < 2.0) weapon = 'sword';

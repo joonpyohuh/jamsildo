@@ -13,7 +13,7 @@ import { PixelLayer, actorFromSprite } from './pixelfx';
 import { LINE_FACE, OPENING, SPEAKER_NAME, pickLine, type LineKey, type Talk } from './lines';
 import type { PxActor, PxInstance } from '../vendor/pixelfx/core/index.js';
 import { HOME, Opening, drawEntranceGlow, drawHomeRoom } from './opening';
-import { ART } from './assets';
+import { ART, MONSTER_VFX } from './assets';
 import { BOSSES, CHAPTERS, PATTERNS, SKILLS, SPIRIT_ASSETS, SPIRIT_NAMES, newSpirit, type BossId, type SpiritSlot, type StatusId } from './campaign';
 import { contains, newBoss, tickStatuses, type BossState, type Statuses, type Zone } from './combat';
 
@@ -29,7 +29,9 @@ export interface InputState {
 
 export type Mode = 'title' | 'opening' | 'talk' | 'play' | 'slide' | 'down' | 'clear' | 'embrace';
 
-const PLAYER_SPEED = 128;
+const PLAYER_SPEED = 150;
+/** 바닥 안쪽 경계: 보스·장판이 벽에 붙지 않게 */
+const IN_X0 = FLOOR.x + 24, IN_X1 = FLOOR.x + FLOOR.w - 24, IN_Y0 = FLOOR.y + 25, IN_Y1 = FLOOR.y + FLOOR.h - 19;
 /** HP 20 = 하트 한 칸. 시작 체력 100 = 하트 다섯 개. */
 const PLAYER_HP = 100;
 /** 스테이지 보상 아이템으로 오를 수 있는 상한 */
@@ -95,6 +97,9 @@ interface Bullet {
   explode?: number;
   /** 넉백 세기 (물방울) */
   knock?: number;
+  /** 탄 대신 그릴 원화 이펙트 */
+  art?: string;
+  artScale?: number;
   /** pixelfx 불덩이 핸들: 탄과 함께 움직인다 */
   fx?: PxInstance;
 }
@@ -109,6 +114,15 @@ interface TalkState { lines: readonly Talk[]; i: number; shown: number; onDone: 
 
 interface Orb { x: number; y: number; vx: number; vy: number; t: number }
 interface Strike { t: number; form: FormId; aim: number }
+/** 원화 이펙트 한 장. 정적인 그림이라 등장·퇴장을 코드로 움직인다. */
+interface Vfx { id: string; x: number; y: number; t: number; life: number; angle: number; scale: number; alpha: number; rise: number; follow: boolean }
+/** 진행 방향이 있는 그림 (오른쪽을 향해 그려져 있다) */
+const AIMED_PANELS = new Set([
+  'fire_dagger', 'fire_bow', 'fire_knuckle', 'water_dagger', 'water_bow', 'water_knuckle',
+  'wood_bow', 'dark_dagger', 'dark_bow', 'light_dagger', 'light_bow', 'chaos_prismatic_shadow_ray',
+]);
+const CHAOS_PANELS = ['fire_water_collision', 'wood_lightning_burst', 'prismatic_shadow_ray', 'cosmic_chaos_ring'] as const;
+const WEAPON_PANEL: Readonly<Record<FormId, string>> = { dagger: 'dagger', sword: 'longsword', bow: 'bow', knuckle: 'knuckle' };
 interface Slide { from: Room; to: Room; dir: Dir; t: number }
 interface Relic { x: number; y: number; t: number }
 /** 스테이지를 깰 때마다 하나: 기력의 결정(최대 기력) 또는 심장 조각(최대 체력) */
@@ -158,12 +172,6 @@ function windowOf(room: Room): Window_ {
 
 export class Game {
   mode: Mode = 'title';
-  viewport = { x: 0, y: 0, w: VIEW_W, h: VIEW_H };
-
-  get cameraFocus(): { x: number; y: number } {
-    return { x: this.player.x, y: this.player.y - 12 };
-  }
-
   private stage: Stage;
   readonly equipped: SpiritSlot[] = [];
   private readonly acquired = new Set<Element>();
@@ -207,6 +215,7 @@ export class Game {
   private zoom: Zoom = { amount: 0, life: 0, max: 1, x: CX, y: CY };
   private endingT = -1;
   private relic: Relic | null = null;
+  private vfx: Vfx[] = [];
   private armorFx: PxInstance | null = null;
   private playerBodyCache: PxActor | null = null;
   private armorTick = 0;
@@ -403,7 +412,7 @@ export class Game {
     this.enterRoom(this.home, null);
     this.homeT = 0;
     this.goOutSaid = false;
-    this.ui.center(window.matchMedia('(pointer: coarse)').matches ? '오른쪽 조이스틱으로 이동' : '클릭한 곳으로 이동');
+    this.ui.center(window.matchMedia('(pointer: coarse)').matches ? '왼쪽 조이스틱으로 이동' : '클릭한 곳으로 이동');
     this.saveCheckpoint();
   }
 
@@ -433,6 +442,7 @@ export class Game {
     this.flames = [];
     this.zones = [];
     this.events = [];
+    this.vfx = [];
     this.px.clear();
     this.pending = null;
     const p = this.player;
@@ -648,6 +658,7 @@ export class Game {
 
     this.fx.update(dt);
     this.px.update(dt, dtReal);
+    this.updateVfx(dtReal);
     this.ui.placeForm(this.player.x, this.player.y - 26);
   }
 
@@ -1044,7 +1055,11 @@ export class Game {
     slot.cooldowns[key] = spec.cd;
     slot.uses[spec.type] = (slot.uses[spec.type] ?? 0) + 1; slot.xp += 1;
     const tier = slot.xp >= 24 ? 3 : slot.xp >= 8 ? 2 : 1;
-    if (tier > slot.tier) { slot.tier = tier; this.ui.center(`${SPIRIT_NAMES[slot.element]} · ${tier===2?'중급 · R 해금':'상급 진화'}`); }
+    if (tier > slot.tier) {
+      slot.tier = tier; this.ui.center(`${SPIRIT_NAMES[slot.element]} · ${tier===2?'중급 · R 해금':'상급 진화'}`);
+      this.fx.burst(p.x-p.facing*13,p.y-26,0,28,[ELEMENT[slot.element].glow,COLOR.white],{spread:Math.PI,speed:130,life:0.7,glow:true});
+      this.fx.ring(p.x-p.facing*13,p.y-26,34,0.5);
+    }
     this.skillPower = (slot.tier === 3 ? 1.6 : slot.tier === 2 ? 1.3 : 1) * this.runAttack;
     this.executeSkill(slot.element,key);
     if(this.reactionCd<=0&&this.equipped.length>=2){
@@ -1081,6 +1096,7 @@ export class Game {
    */
   private executeSkill(element: Element, key: SkillKey): void {
     const p = this.player, spec = SKILLS[element][key];
+    const startX=p.x,startY=p.y;
     const origin=this.aimPoint??p;
     const target = this.activeEnemies().sort((a,b)=>dist(origin.x,origin.y,a.x,a.y)-dist(origin.x,origin.y,b.x,b.y))[0];
     const point = this.aimPoint ?? (target ? {x:target.x,y:target.y} : {x:p.x+Math.cos(p.aim)*96,y:p.y+Math.sin(p.aim)*96});
@@ -1109,6 +1125,7 @@ export class Game {
       }
       if (key === 'r') { this.chaosTime=5;this.chaosTick=0; }
       sparkle(p.x, p.y - 10, 16, [glow, COLOR.white]);
+      this.skillVfx(element,key,angle,startX,startY,x,y);
       return;
     }
 
@@ -1120,7 +1137,6 @@ export class Game {
       }
       if (key === 'w') {
         // 점화 돌진: 순간 돌진, 지나간 자리에 불길
-        const startX=p.x,startY=p.y;
         this.px.fireRing(startX, startY + 4, 26);
         p.x=p.tx=x;p.y=p.ty=y;p.moving=false;p.invuln=Math.max(p.invuln,0.35);
         for(let i=0;i<10;i++)this.flames.push({x:startX+(x-startX)*i/10,y:startY+(y-startY)*i/10,t:0,life:2.4,owner:'player',tick:0});
@@ -1153,7 +1169,7 @@ export class Game {
     } else if (element === 'water') {
       if (key === 'q') {
         // 물방울 탄: 느리고 크다. 꿰뚫으며 세게 밀어내고 잠깐 기절.
-        shot(angle, { vx: 165, r: 6, style: 'bubble', pierce: true, knock: 420 });
+        shot(angle, { vx: 165, r: 6, style: 'bubble', pierce: true, knock: 420, art: 'fx_water_bow_sm', artScale: 0.9 });
       }
       if (key === 'w') {
         // 맑은 물: 회복 + 걸린 상태이상 전부 씻어냄
@@ -1169,7 +1185,7 @@ export class Game {
       }
       if (key === 'r') {
         // 해일: 사방으로 무거운 물대포 12줄기
-        for(let i=0;i<12;i++)shot(i/12*TAU, { vx: 190, r: 6, style: 'bubble', pierce: true, knock: 560 });
+        for(let i=0;i<12;i++)shot(i/12*TAU, { vx: 190, r: 6, style: 'bubble', pierce: true, knock: 560, art: 'fx_water_dagger_sm', artScale: 0.8 });
         this.fx.ring(p.x, p.y - 6, 60, 0.5); this.fx.shake(4);
       }
     } else if (element === 'wood') {
@@ -1200,7 +1216,7 @@ export class Game {
     } else if (element === 'dark') {
       if (key === 'q') {
         // 그림자 단도 세 자루: 맞은 것에 표식
-        for (const d of [-0.2, 0, 0.2]) shot(angle + d, { vx: 280, style: 'shadow', pierce: false });
+        for (const d of [-0.2, 0, 0.2]) shot(angle + d, { vx: 280, style: 'shadow', pierce: false, art: 'fx_dark_bow_sm', artScale: 0.7 });
       }
       if (key === 'w') {
         // 그림자 이동: 가장 가까운 그늘 뒤로 숨어들어 등을 벤다
@@ -1261,6 +1277,92 @@ export class Game {
         area({x,y,life:6,effect:'light'});
         sparkle(x, y - 20, 30, ['#fff0b1', COLOR.white], 120);
       }
+    }
+    this.skillVfx(element,key,angle,startX,startY,x,y);
+  }
+
+  /** 지금 정령 × 무기 형태의 그림 이름 */
+  private weaponPanel(form: FormId): string | null {
+    const el = this.equipped[this.activeSpirit]?.element;
+    if (!el) return null;
+    if (el === 'chaos') return `chaos_${CHAOS_PANELS[Math.floor(Math.random() * CHAOS_PANELS.length)]!}`;
+    return `${el}_${WEAPON_PANEL[form]}`;
+  }
+
+  private playVfx(id: string, x: number, y: number, o: Partial<Pick<Vfx, 'life' | 'angle' | 'scale' | 'alpha' | 'rise' | 'follow'>> = {}): void {
+    if (!ART.has(id) || this.vfx.length > 48) return;
+    this.vfx.push({ id, x, y, t: 0, life: 0.45, angle: 0, scale: 1, alpha: 1, rise: 0, follow: false, ...o });
+  }
+
+  /** 몬스터의 대표 스킬 그림. 공격하는 순간에 부른다. */
+  private monsterVfx(e: Enemy, o: Partial<Pick<Vfx, 'life' | 'angle' | 'scale' | 'alpha'>> = {}, dy = -6): void {
+    const chapter = CHAPTERS[this.stage.chapter - 1]!;
+    const monster = e.spriteId ?? chapter.enemies[e.kind === 'bother' ? 0 : e.kind === 'heavy' ? 1 : 2];
+    const id = MONSTER_VFX.get(monster);
+    if (id) this.playVfx(id, e.x, e.y + dy, { life: 0.5, alpha: 0.9, ...o });
+  }
+
+  /** QWER 그림: 정령마다 네 장을 스킬 성격에 맞춰 배정했다 */
+  private skillVfx(el: Element, key: SkillKey, angle: number, sx: number, sy: number, x: number, y: number): void {
+    const p = this.player, panel = (name: string): string => `fx_${el}_${name}`;
+    if (el === 'chaos') {
+      const pick = `fx_chaos_${CHAOS_PANELS[Math.floor(Math.random() * CHAOS_PANELS.length)]!}`;
+      this.playVfx(pick, p.x, p.y - 10, { life: 0.7, angle: pick.endsWith('ray') ? angle : 0 });
+      return;
+    }
+    const mid = { x: (sx + x) / 2, y: (sy + y) / 2 - 8 };
+    switch (`${el}_${key}`) {
+      case 'fire_q': this.playVfx(panel('bow') + '_sm', sx + Math.cos(angle) * 20, sy - 9 + Math.sin(angle) * 20, { life: 0.2, angle }); break;
+      case 'fire_w': this.playVfx(panel('dagger'), mid.x, mid.y, { life: 0.35, angle }); break;
+      case 'fire_e': this.playVfx(panel('longsword'), p.x, p.y - 10, { life: 0.6, follow: true, scale: 0.8 }); break;
+      case 'fire_r':
+        this.after(1, () => {
+          this.playVfx(panel('longsword'), p.x, p.y - 8, { life: 0.8, scale: 2.4 });
+          for (let i = 0; i < 4; i++) this.playVfx(panel('knuckle'), p.x + Math.cos(i * TAU / 4) * 60, p.y - 8 + Math.sin(i * TAU / 4) * 50, { life: 0.6, angle: i * TAU / 4 });
+        });
+        break;
+      case 'water_q': this.playVfx(panel('dagger') + '_sm', sx + Math.cos(angle) * 18, sy - 9 + Math.sin(angle) * 18, { life: 0.2, angle }); break;
+      case 'water_w': this.playVfx(panel('longsword'), p.x, p.y - 12, { life: 0.6, rise: 18, scale: 0.8 }); break;
+      case 'water_e': this.playVfx(panel('knuckle') + '_sm', p.x, p.y - 10, { life: 0.4, angle }); break;
+      case 'water_r': for (let i = 0; i < 4; i++) this.playVfx(panel('longsword'), p.x + Math.cos(i * TAU / 4) * 50, p.y - 8 + Math.sin(i * TAU / 4) * 40, { life: 0.6 }); break;
+      case 'wood_q': this.playVfx(panel('knuckle'), x, y - 6, { life: 0.5, scale: 0.8 }); break;
+      case 'wood_w': this.playVfx(panel('knuckle') + '_sm', p.x, p.y - 10, { life: 0.6, follow: true }); break;
+      case 'wood_e': this.playVfx(panel('bow'), sx + Math.cos(angle) * 64, sy + Math.sin(angle) * 64, { life: 0.4, angle, scale: 1.3 }); if (x !== sx || y !== sy) this.playVfx(panel('dagger'), x, y - 6, { life: 0.8, scale: 0.7 }); break;
+      case 'wood_r': this.playVfx(panel('longsword'), x, y - 12, { life: 1.4, scale: 1.8 }); break;
+      case 'dark_q': this.playVfx(panel('dagger') + '_sm', sx + Math.cos(angle) * 18, sy - 9 + Math.sin(angle) * 18, { life: 0.2, angle }); break;
+      case 'dark_w': this.playVfx(panel('dagger'), sx, sy - 8, { life: 0.35 }); this.playVfx(panel('dagger'), p.x, p.y - 8, { life: 0.35 }); break;
+      case 'dark_e': this.playVfx(panel('longsword'), x, y - 8, { life: 1.2, scale: 1.8, alpha: 0.85 }); break;
+      case 'dark_r': for (const e of this.activeEnemies()) if (e.effects.mark) this.playVfx(panel('knuckle'), e.x, e.y - 10, { life: 0.6, scale: 0.8 }); break;
+      case 'light_q': this.playVfx(panel('bow'), sx + Math.cos(angle) * 56, sy - 6 + Math.sin(angle) * 56, { life: 0.28, angle, scale: 1.2 }); break;
+      case 'light_w': this.playVfx(panel('knuckle'), p.x, p.y - 12, { life: 0.8, follow: true, rise: 8, scale: 0.8 }); break;
+      case 'light_e': this.playVfx(panel('knuckle'), p.x, p.y - 8, { life: 0.4, scale: 2 }); break;
+      case 'light_r': this.playVfx(panel('longsword'), x, y - 34, { life: 1.4, scale: 1.2 }); break;
+    }
+  }
+
+  private updateVfx(dt: number): void {
+    for (const v of this.vfx) {
+      v.t += dt;
+      if (v.follow) { v.x = this.player.x; v.y = this.player.y - 10; }
+    }
+    this.vfx = this.vfx.filter(v => v.t < v.life);
+  }
+
+  /** 조명 위에 그린다 (어두운 방에서도 이펙트는 또렷하게). 빠르게 커지며 나타나고 서서히 사라진다. */
+  private drawVfx(ox: number, oy: number): void {
+    const ctx = this.ctx;
+    for (const v of this.vfx) {
+      const spr = ART.get(v.id);
+      if (!spr) continue;
+      const k = v.t / v.life, pop = Math.min(1, v.t / 0.07);
+      const scale = v.scale * (0.72 + 0.28 * pop);
+      ctx.save();
+      ctx.globalAlpha = v.alpha * (k > 0.6 ? 1 - (k - 0.6) / 0.4 : 1);
+      ctx.translate(Math.round(v.x + ox), Math.round(v.y + oy - v.rise * k));
+      if (v.angle) ctx.rotate(v.angle);
+      ctx.scale(scale, scale);
+      ctx.drawImage(spr, -Math.round(spr.width / 2), -Math.round(spr.height / 2));
+      ctx.restore();
     }
   }
 
@@ -1527,6 +1629,7 @@ export class Game {
         x: p.x + Math.cos(aim) * 9, y: p.y - 7 + Math.sin(aim) * 9,
         vx: Math.cos(aim) * speed, vy: Math.sin(aim) * speed,
         r: 3, life: 1.3, damage: spec.damage, owner: 'player', style: 'arrow',
+        art: this.weaponPanel('bow') ? `fx_${this.weaponPanel('bow')}_sm` : undefined, artScale: 0.6,
       });
       this.sfx.play('bow');
       return;
@@ -1570,6 +1673,11 @@ export class Game {
     if (s.form === 'knuckle') {
       this.px.blunt(p.x + Math.cos(s.aim) * 14, p.y - 8 + Math.sin(s.aim) * 10, 0);
       this.sfx.play(hits ? 'punch' : 'swing');
+    }
+    const panel = this.weaponPanel(s.form);
+    if (panel) {
+      const reach = Math.min(spec.range, 34);
+      this.playVfx(`fx_${panel}_sm`, p.x + Math.cos(s.aim) * reach, p.y - 8 + Math.sin(s.aim) * reach * 0.8, { life: s.form === 'dagger' ? 0.16 : 0.26, angle: AIMED_PANELS.has(panel) ? s.aim : 0, scale: s.form === 'sword' ? 1.3 : 0.9, alpha: 0.9 });
     }
 
     if (hits > 0) {
@@ -1939,9 +2047,9 @@ export class Game {
   private aiBother(e: Enemy, dt: number): void {
     const p = this.player;
     if (e.state === 'rest') {
-      if (e.t <= 0) { e.state = 'move'; e.t = rand(0.6, 0.9); }
+      if (e.t <= 0) { e.state = 'move'; e.t = rand(0.6, 0.9); if (Math.random() < 0.3) this.monsterVfx(e, { scale: 0.55, life: 0.6, alpha: 0.75 }, 2); }
     } else {
-      this.stepToward(e, p.x, p.y, 58, dt);
+      this.stepToward(e, p.x, p.y, 66, dt);
       if (e.t <= 0) { e.state = 'rest'; e.t = rand(0.5, 0.9); }
     }
   }
@@ -1951,7 +2059,7 @@ export class Game {
     const p = this.player;
     const d = dist(e.x, e.y, p.x, p.y);
     if (e.state === 'chase') {
-      this.stepToward(e, p.x, p.y, 33, dt);
+      this.stepToward(e, p.x, p.y, 38, dt);
       if (d < e.r + p.r + 30 && e.t <= 0) {
         e.state = 'wind';
         e.t = 0.48;
@@ -1966,6 +2074,7 @@ export class Game {
         e.state = 'chase';
         e.t = 1.3;
         this.fx.ring(e.x, e.y + 4, 18, 0.25);
+        this.monsterVfx(e, { scale: 0.75, life: 0.45 }, 0);
         this.fx.shake(2);
         this.sfx.play('thud');
       }
@@ -1993,6 +2102,7 @@ export class Game {
       e.t = 0.55;
     } else if (e.state === 'aim' && e.t <= 0) {
       this.fireEnemy(e.x, e.y - 14, angleTo(e.x, e.y - 14, p.x, p.y - 8), 108, 'tear');
+      this.monsterVfx(e, { scale: 0.6, life: 0.4 }, -16);
       this.sfx.play('tear');
       e.state = 'drift';
       e.t = rand(1.5, 2.1);
@@ -2207,19 +2317,19 @@ export class Game {
       if(key==='e')enemy.skillShield=8;
       if(key==='r'){zone({damage:0});later(1,()=>{for(let i=0;i<8;i++)shot(i/8*TAU);});}
     }else if(element==='wood'){
-      if(key==='q')zone({shape:'wall',x:clamp(enemy.x+Math.cos(angle)*64,40,440),y:clamp(enemy.y+Math.sin(angle)*64,65,235),width:12,length:96,life:6,damage:0,hp:50});
+      if(key==='q')zone({shape:'wall',x:clamp(enemy.x+Math.cos(angle)*64,IN_X0,IN_X1),y:clamp(enemy.y+Math.sin(angle)*64,IN_Y0,IN_Y1),width:12,length:96,life:6,damage:0,hp:50});
       if(key==='w')enemy.armor=Math.min(3,(enemy.armor??0)+1);
       if(key==='e')zone({shape:'cone',angle});
       if(key==='r')zone({x:p.x,y:p.y,life:8,effect:'slow'});
     }else if(element==='fire'){
       if(key==='w'){
         zone({shape:'line',angle,length:96,width:8,damage:0});
-        later(1,()=>{const x=enemy.x,y=enemy.y;enemy.x=clamp(x+Math.cos(angle)*96,40,440);enemy.y=clamp(y+Math.sin(angle)*96,65,235);for(let i=0;i<10;i++)this.flames.push({x:x+(enemy.x-x)*i/10,y:y+(enemy.y-y)*i/10,t:0,life:2,owner:'enemy',tick:0});});
+        later(1,()=>{const x=enemy.x,y=enemy.y;enemy.x=clamp(x+Math.cos(angle)*96,IN_X0,IN_X1);enemy.y=clamp(y+Math.sin(angle)*96,IN_Y0,IN_Y1);for(let i=0;i<10;i++)this.flames.push({x:x+(enemy.x-x)*i/10,y:y+(enemy.y-y)*i/10,t:0,life:2,owner:'enemy',tick:0});});
       }
       if(key==='e')enemy.fireArmor=5;
       if(key==='r')zone({status:'burn'});
     }else if(element==='dark'){
-      if(key==='w'){enemy.x=clamp(enemy.x+Math.cos(angle)*192,40,440);enemy.y=clamp(enemy.y+Math.sin(angle)*192,65,235);enemy.stealth=1;}
+      if(key==='w'){enemy.x=clamp(enemy.x+Math.cos(angle)*192,IN_X0,IN_X1);enemy.y=clamp(enemy.y+Math.sin(angle)*192,IN_Y0,IN_Y1);enemy.stealth=1;}
       if(key==='e')zone({x:p.x,y:p.y,life:4,status:'blind',damage:0});
       if(key==='r'&&p.effects.mark)zone({shape:'screen'});
     }else if(element==='light'){
@@ -2237,6 +2347,7 @@ export class Game {
     const later=(time:number,run:()=>void)=>this.after(time/haste,()=>{if(!enemy.faced)run();});
     const shoot=(x:number,y:number,a:number,speed:number,style:'tear'|'note'|'ember',damage=15,skill=false,element?:Element)=>this.fireEnemy(x,y,a,speed*(haste>1?1.3:1),style,damage,skill,element);
     b.pattern=pattern;enemy.state='bossAct';enemy.t=2.8;
+    this.monsterVfx(enemy,{life:0.8,scale:enemy.spriteId?.startsWith('boss')?1:1.5,alpha:0.85},-14);
     const angle=angleTo(enemy.x,enemy.y,p.x,p.y);
     const circle=(x:number,y:number,r:number,damage:number,warning=profile.warning,status?:StatusId,life=0.25)=>this.addZone({x,y,r,damage:damage>0?(pattern==='mimic'?damage:profile.damage):0,warning,life,status,source:enemy.id});
     const warn=()=>circle(enemy.x,enemy.y,enemy.r+9,0,0.8);
@@ -2305,7 +2416,7 @@ export class Game {
         circle(enemy.x,enemy.y,32,15,1,undefined,3);
         if(pattern==='notice_me')burst(16,3,this.equipped[0]?.element??'fire');enemy.t=5;break;
       case 'gap_ring':burst(16,phase?3:1);break;
-      case 'hands':for(let i=0;i<(phase?8:5);i++)circle(i===0?p.x:rand(40,440),i===0?p.y:rand(65,230),22,20,phase?0.8:1,'slow');break;
+      case 'hands':for(let i=0;i<(phase?8:5);i++)circle(i===0?p.x:rand(IN_X0,IN_X1),i===0?p.y:rand(IN_Y0,IN_Y1-5),22,20,phase?0.8:1,'slow');break;
       case 'yawn':this.addZone({shape:'cone',x:enemy.x,y:enemy.y,r:192,angle,warning:1.5,life:0.3,damage:30,source:enemy.id});break;
       case 'air':this.addZone({shape:'screen',x:enemy.x,y:enemy.y,warning:1,life:10,effect:'slow',source:enemy.id});break;
       case 'prison':this.addZone({shape:'ring',x:p.x,y:p.y,r:96,width:6,grow:-21,warning:1,life:3,damage:20,effect:'prison',source:enemy.id});break;
@@ -2322,11 +2433,11 @@ export class Game {
         for(let i=0;i<3;i++)later(i*0.7,()=>this.addZone({shape:'ring',x:enemy.x,y:enemy.y,r:18,width:5,grow:85,warning:0.8,life:2.5,damage:20,source:enemy.id}));
         if(pattern==='echo_ring')later(2,()=>this.addZone({shape:'ring',x:VIEW_W-enemy.x,y:VIEW_H-enemy.y,r:18,width:5,grow:85,warning:0.8,life:2.5,damage:20,source:enemy.id}));
         enemy.t=4;break;
-      case 'luggage':case 'mirror_rain':for(let i=0;i<(pattern==='luggage'?6:12);i++)circle(rand(38,442),rand(65,235),16,pattern==='luggage'?20:15,1);break;
+      case 'luggage':case 'mirror_rain':for(let i=0;i<(pattern==='luggage'?6:12);i++)circle(rand(IN_X0-2,IN_X1+2),rand(IN_Y0,IN_Y1),16,pattern==='luggage'?20:15,1);break;
       case 'lock':case 'alone':case 'read_ignore':case 'silent_meal':
         warn();later(1,()=>{if(pattern==='read_ignore')this.freezeCooldown=3;else p.effects.silence=pattern==='alone'?6:5;if(pattern==='silent_meal')this.fixedForm=5;});break;
       case 'compare':
-        warn();later(0.8,()=>{this.summon(enemy,'gloom',2,'decoy',1);enemy.x=clamp(enemy.x+rand(-55,55),60,420);});
+        warn();later(0.8,()=>{this.summon(enemy,'gloom',2,'decoy',1);enemy.x=clamp(enemy.x+rand(-55,55),IN_X0+20,IN_X1-20);});
         later(5,()=>{for(const decoy of this.enemies)if(decoy.source===enemy.id&&decoy.tag==='decoy')this.faceEnemy(decoy,false);});enemy.t=5.5;break;
       case 'invert':warn();later(1.5,()=>{this.reverseTime=5;this.ui.center('5초간 좌우 반전 · 반대 방향으로 이동');});enemy.t=3;break;
       case 'shatter':burst(20,3);break;
@@ -2338,7 +2449,7 @@ export class Game {
       case 'back_wall':circle(enemy.x,enemy.y,96,10,1,undefined,6);break;
       case 'push':case 'table_flip':this.addZone({shape:'line',x:enemy.x,y:enemy.y,angle,length:160,width:48,warning:pattern==='table_flip'?1.5:1.2,life:0.25,damage:pattern==='table_flip'?40:25,source:enemy.id});break;
       case 'photo':{
-        const safe={x:clamp(enemy.x-Math.cos(angle)*70,40,440),y:clamp(enemy.y-Math.sin(angle)*70,65,235),r:32};
+        const safe={x:clamp(enemy.x-Math.cos(angle)*70,IN_X0,IN_X1),y:clamp(enemy.y-Math.sin(angle)*70,IN_Y0,IN_Y1),r:32};
         this.addZone({shape:'screen',x:enemy.x,y:enemy.y,warning:3,life:0.3,damage:50,safe,source:enemy.id});enemy.t=4;this.ui.center('3 · 2 · 1 · 초록색 그림자 뒤로!');break;
       }
       case 'words':fan(5,0.04,15);break;
@@ -2451,6 +2562,7 @@ export class Game {
             if (b.explode) {
               // 불씨 탄이 터진다: 주변 그늘에도 피해 + 화상
               this.px.fireRing(b.x, b.y + 6, b.explode);
+              this.playVfx('fx_fire_bow_sm', b.x, b.y, { life: 0.3, scale: 1.3 });
               for (const o of this.activeEnemies()) if (o !== e && dist(o.x, o.y, b.x, b.y) < b.explode + o.r) { this.hitEnemy(o, b.damage * 0.6, angleTo(b.x, b.y, o.x, o.y), 90, true, 'fire'); this.applyStatus(o, 'burn', 3); }
             }
             this.sfx.play('fireHit');
@@ -2589,6 +2701,7 @@ export class Game {
     ctx.restore();
 
     this.drawLighting([sx, sy]);
+    this.drawVfx(sx, sy);
     this.fx.drawMotes(ctx);
     this.drawGlowPass([sx, sy]);
     this.fx.drawOverlay(ctx);
@@ -3274,7 +3387,10 @@ export class Game {
   private drawSpirit(s: Spirit): void {
     const frame = Math.floor(this.clock * 5) % 2 === 0 ? 0 : 1;
     const element=s.state==='following'?(this.equipped[this.activeSpirit]?.element??this.stage.element):this.stage.element;
-    const spr = ART.get(SPIRIT_ASSETS[element])??SPRITES.fireSpirit[frame];
+    // 등급이 오르면 진화체로 (중급·상급). 이름은 기획서 미정이라 그림만 바꾼다.
+    const tier=s.state==='following'?(this.equipped[this.activeSpirit]?.tier??1):1;
+    const evolved=tier>=3?ART.get(`evo_${element}_upper`):tier===2?ART.get(`evo_${element}_medium`):undefined;
+    const spr = evolved??ART.get(SPIRIT_ASSETS[element])??SPRITES.fireSpirit[frame];
     const bob = s.state === 'waiting' ? Math.sin(this.clock * 2.5) * 2 : 0;
     const appear = s.state === 'waiting' ? clamp(s.t / 0.8, 0, 1) : 1;
     if (s.state === 'waiting') pixelEllipse(this.ctx, s.x, s.y + 20, 5 * appear, 1.5, COLOR.shadow);
@@ -3284,6 +3400,16 @@ export class Game {
 
   private drawBullet(b: Bullet): void {
     const ctx = this.ctx;
+    const art = b.art ? ART.get(b.art) : undefined;
+    if (art) {
+      ctx.save();
+      ctx.translate(Math.round(b.x), Math.round(b.y));
+      ctx.rotate(Math.atan2(b.vy, b.vx));
+      ctx.scale(b.artScale ?? 1, b.artScale ?? 1);
+      ctx.drawImage(art, -Math.round(art.width * 0.7), -Math.round(art.height / 2));
+      ctx.restore();
+      return;
+    }
     if (b.style === 'slash') {
       // 진행 방향을 향한 작은 초승달 (흰 날 + 붉은 그림자)
       const a = Math.atan2(b.vy, b.vx);
