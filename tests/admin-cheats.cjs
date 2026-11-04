@@ -11,24 +11,33 @@ const overview = { stats: { players: 0, today: 0, online: 0, active_today: 0, pl
 
 (async () => {
   const browser = await chromium.launch();
+  let releaseSync;
   try {
     const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
     const errors = [], syncs = [];
+    const pendingSync = new Promise(resolve => { releaseSync = resolve; });
     page.on('pageerror', error => errors.push(error.message));
     await page.route('**/api/account', route => {
       const body = route.request().postDataJSON();
-      if (body?.action === 'sync') syncs.push(body);
+      if (body?.action === 'sync') { syncs.push(body); return pendingSync.then(() => route.fulfill({ json: { revision: 1 } })); }
       return route.fulfill({ json: body?.action === 'admin' ? overview : body?.action === 'sync' ? { revision: 1 } : account(true) });
     });
     await page.goto(base);
     await page.waitForFunction(() => !document.querySelector('#startGame').disabled);
     const original = await page.evaluate(owner => localStorage.getItem(`jamsildo.${owner}.campaign`), owner);
     const openAdmin = async () => { await page.locator('#accountToggle').click(); await page.locator('#openAdmin').click(); };
-    await openAdmin();
+    await page.locator('#accountToggle').click();
+    const saving = page.waitForRequest(request => request.url().endsWith('/api/account') && request.postDataJSON()?.action === 'sync');
+    await page.locator('#saveNow').click(); await saving;
+    await page.locator('#openAdmin').click();
     await page.waitForFunction(() => document.querySelectorAll('#adminKpis article').length === 6);
+    assert(await page.locator('#resumeTest').isVisible(), 'test play must be visible before selecting cheats');
     assert.equal(await page.locator('#adminSpirits button').count(), 6);
     await page.locator('#cheat-health').click();
-    await page.waitForFunction(() => window.__jamsildo.cheats.health);
+    await page.waitForFunction(() => window.__jamsildo.cheats.health, null, { timeout: 1500 });
+    releaseSync();
+    await page.waitForFunction(() => document.querySelector('#accountMessage').textContent.includes('저장을 확인'));
+    assert.equal(await page.evaluate(owner => localStorage.getItem(`jamsildo.${owner}.test.sync`), owner), null, 'pending real sync must not write into test storage');
     await page.locator('#cheat-energy').click();
     await page.waitForFunction(() => window.__jamsildo.cheats.energy);
     const beforeCheats = syncs.length;
@@ -111,9 +120,45 @@ const overview = { stats: { players: 0, today: 0, online: 0, active_today: 0, pl
     assert(await ordinary.locator('#openAdmin').isHidden());
     await ordinary.evaluate(() => document.querySelector('#adminDialog').showModal());
     await ordinary.locator('#cheat-health').click();
-    await ordinary.waitForFunction(() => document.querySelector('#adminMessage').textContent.includes('관리자만'));
+    await ordinary.waitForFunction(() => document.querySelector('#adminTestMessage').textContent.includes('관리자만'));
     assert.deepEqual(await ordinary.evaluate(() => window.__jamsildo.cheats), { health: false, energy: false });
     assert.equal(await ordinary.evaluate(() => window.__jamsildo.mode), 'title');
     console.log('PASS ordinary-account guard: forced console opening cannot activate cheats');
-  } finally { await browser.close(); }
+    for (const status of [503, 409]) {
+      const failed = await browser.newPage();
+      failed.on('pageerror', error => errors.push(error.message));
+      let requests = 0;
+      await failed.route('**/api/account', route => {
+        const body = route.request().postDataJSON();
+        if (body?.action === 'sync') { requests++; return route.fulfill({ status, json: { error: `저장 실패 ${status}` } }); }
+        return route.fulfill({ json: body?.action === 'admin' ? overview : account(true) });
+      });
+      await failed.goto(base); await failed.waitForFunction(() => !document.querySelector('#startGame').disabled);
+      const raw = await failed.evaluate(owner => localStorage.getItem(`jamsildo.${owner}.campaign`), owner);
+      await failed.locator('#accountToggle').click(); await failed.locator('#saveNow').click();
+      await failed.waitForFunction(() => document.querySelector('#accountMessage').textContent.includes('저장 실패'));
+      await failed.locator('#openAdmin').click();
+      assert(await failed.locator('#resumeTest').isVisible());
+      await failed.locator('#adminSpirits [data-element=fire]').click();
+      await failed.waitForFunction(() => window.__jamsildo.equipped[window.__jamsildo.activeSpirit]?.element === 'fire', null, { timeout: 1500 });
+      assert((await failed.locator('#adminTestMessage').textContent()).includes('메르'));
+      await failed.locator('#cheat-health').click(); await failed.locator('#cheat-energy').click();
+      assert.deepEqual(await failed.evaluate(() => window.__jamsildo.cheats), { health: true, energy: true });
+      await failed.locator('#resumeTest').click();
+      assert.equal(await failed.evaluate(() => window.__jamsildo.mode), 'play');
+      await failed.locator('#accountToggle').click(); await failed.locator('#openAdmin').click();
+      await failed.locator('#adminStages [data-stage="20"]').click();
+      assert.equal(await failed.evaluate(() => window.__jamsildo.stageNumber), 20);
+      assert.equal(requests, 1, 'test actions must not retry failed account sync');
+      await failed.locator('#accountToggle').click(); await failed.locator('#openAdmin').click();
+      await failed.locator('#leaveTest').click();
+      assert.equal(await failed.evaluate(owner => localStorage.getItem(`jamsildo.${owner}.campaign`), owner), raw);
+      await failed.locator('#resumeTest').click();
+      assert.equal(await failed.evaluate(() => window.__jamsildo.mode), 'play');
+      assert.deepEqual(await failed.evaluate(() => window.__jamsildo.cheats), { health: false, energy: false });
+      await failed.close();
+    }
+    assert.deepEqual(errors, []);
+    console.log('PASS pending sync, failed save (503), save conflict (409), immediate cheat feedback/play/stage changes and original-save preservation');
+  } finally { releaseSync?.(); await browser.close(); }
 })().catch(error => { console.error(error); process.exitCode = 1; });

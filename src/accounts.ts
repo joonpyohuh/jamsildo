@@ -49,7 +49,7 @@ export class Accounts {
     el('prevPlayers').addEventListener('click',()=>{this.page=Math.max(0,this.page-1);void this.loadAdmin();});
     el('nextPlayers').addEventListener('click',()=>{if((this.page+1)*25<this.total)this.page++;void this.loadAdmin();});
     el('leaveTest').addEventListener('click',()=>this.leaveTest());
-    el('resumeTest').addEventListener('click',()=>this.adminDialog.close());
+    el('resumeTest').addEventListener('click',()=>this.applyCheat(()=>this.adminDialog.close()));
     for(const kind of ['health','energy'] as const) {
       el(`cheat-${kind}`).addEventListener('click',()=>{void this.applyCheat(()=>this.game.setCheat(kind,!this.game.cheats[kind]));});
     }
@@ -198,17 +198,18 @@ export class Accounts {
     this.refreshContinue();
     if(!this.user||this.testMode)return;
     if(this.conflict)throw new Error('저장 충돌을 먼저 해결해 주세요. 서버 기록은 덮어쓰지 않았습니다.');
+    const saveOwner=this.user.id;
     const raw=readSave();
     const checkpoint=raw&&raw!=='null'&&raw!==this.acknowledged?JSON.parse(raw):null;
     this.status('계정에 저장 중…');
     this.inFlight=this.api<{revision:number;updated_at:string}>('sync',{revision:this.revision,checkpoint,session:this.session,seconds:Math.floor(this.seconds)},keepalive).then(result=>{
       this.revision=result.revision;
       if(checkpoint)this.acknowledged=raw;
-      writeSave(JSON.stringify({revision:this.revision,raw:this.acknowledged}),'sync');
-      this.status(`계정 저장 완료 · ${new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit',hour12:false})}`);
+      writeSave(JSON.stringify({revision:this.revision,raw:this.acknowledged}),'sync',saveOwner);
+      if(!this.testMode)this.status(`계정 저장 완료 · ${new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit',hour12:false})}`);
     }).catch(error=>{
       if(error.status===409){this.conflict=true;el('loadCloud').hidden=false;}
-      this.status(error.status===409?'저장 충돌 · 계정 창 확인':'계정 저장 실패 · 기기 기록 유지',true);
+      if(!this.testMode)this.status(error.status===409?'저장 충돌 · 계정 창 확인':'계정 저장 실패 · 기기 기록 유지',true);
       this.message(error.message);throw error;
     }).finally(()=>{this.inFlight=null;});
     return this.inFlight;
@@ -228,15 +229,15 @@ export class Accounts {
       }
     }
   }
-  private async prepareTest():Promise<void> {
+  private prepareTest():void {
     const user=this.user;
     if(!user?.is_admin)throw new Error('관리자만 테스트할 수 있습니다.');
     if(!this.testMode){
-      await this.sync();
-      if(this.user?.id!==user.id||!this.user.is_admin)throw new Error('관리자 계정을 다시 확인해 주세요.');
+      // 테스트 진입은 클라우드 응답을 기다리지 않고 원래 소유자의 기기 기록을 보존한다.
+      this.game.saveCheckpoint();
       this.testMode=true;useSaveOwner(`${user.id}.test`);
     }
-    el('leaveTest').hidden=false;el('resumeTest').hidden=false;
+    el('leaveTest').hidden=false;
   }
   private refreshCheats():void {
     for(const [kind,label] of [['health','체력'],['energy','기력']] as const) {
@@ -245,23 +246,26 @@ export class Accounts {
     }
     const active=this.testMode?this.game.equipped[this.game.activeSpirit]?.element:null;
     for(const button of el('adminSpirits').querySelectorAll<HTMLButtonElement>('button'))button.setAttribute('aria-pressed',String(button.dataset.element===active));
+    el('adminTestMessage').textContent=this.testMode
+      ? `테스트 준비 완료 · 스테이지 ${this.game.stageNumber}\n체력 무한 ${this.game.cheats.health?'켜짐':'꺼짐'} · 기력 무한 ${this.game.cheats.energy?'켜짐':'꺼짐'}\n장착 정령: ${this.game.equipped.map(slot=>SPIRIT_NAMES[slot.element]).join(', ')||'없음'}\n테스트 플레이를 누르면 게임으로 돌아갑니다. 실제 계정 기록과 분리하여 테스트 중입니다.`
+      : '정령이나 치트를 선택한 뒤 테스트 플레이를 누르세요. 설정 없이 바로 테스트를 시작할 수도 있습니다.';
   }
-  private async applyCheat(change:()=>void):Promise<void> {
+  private applyCheat(change:()=>void):void {
     try{
-      await this.prepareTest();
+      this.prepareTest();
       if(!['play','talk','embrace'].includes(this.game.mode))this.game.debugStage(this.game.stageNumber);
       change();this.refreshCheats();this.status(`관리자 치트 테스트 · 스테이지 ${this.game.stageNumber} · 실제 기록 저장 안 함`);
-    }catch(error){el('adminMessage').textContent=(error as Error).message;}
+    }catch(error){el('adminTestMessage').textContent=(error as Error).message;}
   }
-  private async startTest(number:number):Promise<void> {
+  private startTest(number:number):void {
     try{
-      await this.prepareTest();
+      this.prepareTest();
       this.game.debugStage(number);this.refreshCheats();this.adminDialog.close();this.status(`관리자 테스트 · 스테이지 ${number}`);
-    }catch(error){el('adminMessage').textContent=(error as Error).message;}
+    }catch(error){el('adminTestMessage').textContent=(error as Error).message;}
   }
   private leaveTest():void {
     if(!this.testMode||!this.user)return;
-    this.testMode=false;useSaveOwner(this.user.id);this.game.returnToTitle();this.refreshCheats();this.refreshContinue();el('leaveTest').hidden=true;el('resumeTest').hidden=true;this.status('테스트 종료 · 내 기록 유지');
+    this.testMode=false;useSaveOwner(this.user.id);this.game.returnToTitle();this.refreshCheats();this.refreshContinue();el('leaveTest').hidden=true;this.status('테스트 종료 · 내 기록 유지');
   }
   private async loadAdmin():Promise<void> {
     if(!this.user?.is_admin||this.adminLoading)return;

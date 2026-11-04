@@ -686,11 +686,12 @@
     </dialog>
     <dialog id="adminDialog" class="account-dialog" aria-labelledby="adminTitle">
       <div class="dialog-heading"><div><small>JAMSILDO · OPERATIONS</small><h2 id="adminTitle">관리자 콘솔</h2></div><button type="button" data-close aria-label="관리자 콘솔 닫기">×</button></div>
-      <h3>치트 · 테스트 전용</h3>
+      <h3>치트 설정 · 테스트 전용</h3>
       <p><small>정령을 클릭하면 획득 / 선택합니다. 슬롯이 가득 차면 현재 정령을 교체합니다. 실제 계정 기록은 바뀌지 않습니다.</small></p>
       <div class="account-actions"><button id="cheat-health" type="button" aria-pressed="false">체력 무한: 꺼짐</button><button id="cheat-energy" type="button" aria-pressed="false">기력 무한: 꺼짐</button></div>
       <div id="adminSpirits" class="admin-kpis" role="group" aria-label="종류별 정령 획득"></div>
-      <div class="account-actions"><button id="resumeTest" type="button" hidden>테스트 플레이</button><button id="leaveTest" type="button" hidden>테스트 종료 · 내 기록으로</button></div>
+      <div class="account-actions"><button id="resumeTest" type="button">테스트 플레이</button><button id="leaveTest" type="button" hidden>테스트 종료 · 내 기록으로</button></div>
+      <p id="adminTestMessage" class="account-message" role="status" aria-live="polite"></p>
       <div class="admin-kpis" id="adminKpis"></div>
       <p id="adminUpdated"><small>관리자 계정은 유저 통계에서 제외됩니다. 접속 중은 최근 60초 이내 통신 기준입니다.</small></p>
       <h3>플레이어</h3>
