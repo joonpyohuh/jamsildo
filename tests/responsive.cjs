@@ -50,6 +50,7 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
       await page.locator('#volume').evaluate(el => { el.value = '50'; el.dispatchEvent(new Event('input', { bubbles: true })); });
       await page.locator('#settings button').click();
       await page.locator('#startGame').click();
+      await page.locator('#startGuest').click();
       await page.waitForFunction(() => window.__jamsildo.mode === 'opening');
       await page.waitForFunction(() => getComputedStyle(document.querySelector('#title')).visibility === 'hidden');
       await page.evaluate(() => window.__jamsildo.debugOpening(0, 0, 3, 3));

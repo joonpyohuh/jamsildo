@@ -40,3 +40,6 @@
 #adminAudit { padding-left:18px; color:#a8a09a; font-size:11px; }
 @media(max-width:600px) { .account-dialog { padding:16px; }.admin-kpis { grid-template-columns:repeat(2,minmax(0,1fr)); }.admin-kpis strong { font-size:20px; }.stage-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } #accountBar { max-width:150px; } #saveStatus { max-width:150px; font-size:10px; } }
 @media(max-height:450px) { #accountBar { top:48px; }.account-dialog { padding:14px; } }
+
+/* 타이틀에서 연 창: 지금 하려는 동작(가입/로그인)의 버튼을 강조색으로 */
+.account-actions button.is-primary { border-color: var(--accent, #e0a458); color: var(--accent, #e0a458); }

@@ -461,6 +461,16 @@
       }
       .menu-button:hover { background: #252830; }
       #openSettings { border-color: transparent; background: transparent; font-size: 14px; color: var(--dim); }
+      /* 게임 시작 아래로 펼쳐지는 선택: 회원가입(강조색 테두리) / 게스트(기본) / 로그인(글자 링크) */
+      .start-choice { display: flex; flex-direction: column; gap: 8px; padding: 12px 0 4px; border-top: 1px solid var(--line); }
+      .start-choice[hidden] { display: none; }
+      .start-choice .menu-button { display: flex; flex-direction: column; align-items: center; gap: 4px; min-height: 60px; padding: 10px 24px; font-size: 15px; line-height: 1.3; }
+      .choice-sub { font: 11px/1.4 Galmuri9, monospace; letter-spacing: 0.02em; color: var(--dim); }
+      .menu-button.is-accent { border-color: var(--accent); color: var(--accent); }
+      .menu-button.is-accent .choice-sub { color: #c9a777; }
+      #startGame[aria-expanded="true"] { background: #1b1e25; }
+      .text-button { min-height: 40px; padding: 8px; border: 0; background: transparent; color: var(--dim); font: 12px/1.6 Galmuri11, monospace; letter-spacing: 0.02em; text-decoration: underline; text-underline-offset: 4px; cursor: pointer; }
+      .text-button:hover { color: var(--pale); }
       button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
       #settingsToggle {
         position: fixed; top: max(84px, calc(env(safe-area-inset-top) + 72px)); left: max(12px, env(safe-area-inset-left));
@@ -529,7 +539,12 @@
           <h1 class="title">잠실도</h1>
           <p class="tagline">we can win</p>
           <div class="menu-actions">
-            <button id="startGame" class="menu-button" type="button">게임 시작</button>
+            <button id="startGame" class="menu-button" type="button" aria-expanded="false" aria-controls="startChoice">게임 시작</button>
+            <div id="startChoice" class="start-choice" hidden>
+              <button id="startRegister" class="menu-button is-accent" type="button">회원가입<span class="choice-sub">기록이 저장됩니다</span></button>
+              <button id="startGuest" class="menu-button" type="button">게스트로 시작<span class="choice-sub">진행이 저장되지 않습니다</span></button>
+              <button id="startLogin" class="text-button" type="button">이미 계정이 있어요 · 로그인</button>
+            </div>
             <button id="continueGame" class="menu-button" type="button" hidden>계속하기</button>
             <button id="openSettings" class="menu-button" type="button">설정</button>
           </div>

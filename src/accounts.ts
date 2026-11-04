@@ -29,10 +29,13 @@ export class Accounts {
   private adminLoading = false;
   private guest = readSave();
   private initialized = false;
+  /** 타이틀의 '회원가입 / 로그인'에서 열었으면, 성공하는 순간 게임으로 넘어간다 */
+  private pendingStart:'register'|'login'|null = null;
 
   constructor(private game:Game) {
     el('accountToggle').addEventListener('click',()=>this.dialog.showModal());
     for (const dialog of [this.dialog,this.adminDialog]) dialog.querySelector('[data-close]')!.addEventListener('click',()=>dialog.close());
+    this.dialog.addEventListener('close',()=>{this.pendingStart=null;el('accountTitle').textContent='기록을 이어서';this.orderAuthButtons('login');});
     el<HTMLFormElement>('loginForm').addEventListener('submit',event=>{event.preventDefault();void this.login((event as SubmitEvent).submitter?.getAttribute('value') === 'register' ? 'register' : 'login');});
     el('saveNow').addEventListener('click',()=>{void this.sync().then(()=>this.message('저장을 확인했습니다.')).catch(error=>this.message(error.message));});
     el('logout').addEventListener('click',()=>{void this.logout();});
@@ -107,13 +110,34 @@ export class Accounts {
       if(account.save?.checkpoint?.maxEnergy)writeSave(String(account.save.checkpoint.maxEnergy),'max-energy');
       el('accountSummary').textContent=`${this.user.username} · 누적 ${duration(this.user.play_seconds)}`;
       el('importGuest').hidden=!!remote||!this.guest;
-    }else{this.status('게스트 · 이 기기에 저장');}
+    }else{this.status('로그인 전');}
+    this.game.saveEnabled=!!this.user;
     el('signedOut').hidden=!!this.user;el('signedIn').hidden=!this.user;
     el('accountToggle').textContent=this.user?`${this.user.is_admin?'관리자 · ':''}${this.user.username}`:'로그인 / 가입';
     el('openAdmin').hidden=!this.user?.is_admin;el('loadCloud').hidden=!this.conflict;
     this.refreshContinue();
   }
-  refreshContinue():void { const raw=readSave();el('continueGame').hidden=!raw||raw==='null'; }
+  refreshContinue():void { const raw=readSave();el('continueGame').hidden=!this.user||!raw||raw==='null'; }
+  get signedIn():boolean { return !!this.user; }
+  /** Enter로 제출되는 첫 버튼을 모드에 맞춘다 (가입 창에서 Enter가 로그인으로 가지 않게) */
+  private orderAuthButtons(mode:'register'|'login'):void {
+    const form=el<HTMLFormElement>('loginForm'),actions=form.querySelector<HTMLElement>('.account-actions')!;
+    const register=actions.querySelector<HTMLButtonElement>('[value="register"]')!,login=actions.querySelector<HTMLButtonElement>('[value="login"]')!;
+    if(mode==='register')actions.prepend(register);else actions.prepend(login);
+    register.classList.toggle('is-primary',mode==='register');login.classList.toggle('is-primary',mode==='login');
+  }
+  /** 타이틀 '게스트로 시작': 이번 판은 저장하지 않는다 */
+  playAsGuest():void { this.game.saveEnabled=false;this.status('게스트 · 저장 안 됨',true); }
+  /** 타이틀 '회원가입' / '로그인': 계정 창을 열고, 성공하면 바로 게임으로 */
+  openAuth(mode:'register'|'login'):void {
+    this.pendingStart=mode;
+    this.orderAuthButtons(mode);
+    el('accountTitle').textContent=mode==='register'?'회원가입 · 기록 저장':'로그인';
+    el<HTMLInputElement>('password').autocomplete=mode==='register'?'new-password':'current-password';
+    this.message(mode==='register'?'아이디와 비밀번호를 정하고 회원가입을 눌러 주세요.':'');
+    if(!this.dialog.open)this.dialog.showModal();
+    el<HTMLInputElement>('username').focus();
+  }
   confirmStart():boolean {
     if(!this.initialized)return false;
     const raw=readSave();
@@ -127,7 +151,14 @@ export class Accounts {
       if(this.game.mode!=='title' && !confirm('현재 게스트 진행은 이 기기에 보관됩니다. 로그인 계정의 기록으로 전환할까요?'))return;
       this.game.saveCheckpoint();this.guest=readSave();
       const result=await this.api<Account>(action,{username:el<HTMLInputElement>('username').value,password:el<HTMLInputElement>('password').value});
+      const start=this.pendingStart;
       this.game.returnToTitle();this.acceptAccount(result);form.reset();this.message(action==='register'?'가입했습니다. 게임 시작 또는 이전 기록 가져오기를 선택해 주세요.':'로그인했습니다. 계속하기로 기록을 이어갈 수 있습니다.');
+      if(start){
+        // 타이틀에서 연 경우: 가입하면 새로 시작, 로그인하면 기록이 있으면 이어서
+        this.dialog.close();el('startChoice').hidden=true;el('startGame').setAttribute('aria-expanded','false');
+        const raw=readSave();
+        if(action==='login'&&raw&&raw!=='null')this.game.resumeRun();else this.game.onScreenTap();
+      }
     }catch(error){this.message((error as Error).message);}finally{for(const button of form.querySelectorAll('button'))button.disabled=false;}
   }
   private async logout():Promise<void> {
@@ -143,7 +174,7 @@ export class Accounts {
     if(!document.hidden&&!this.paused&&!this.testMode&&!['title','clear','down'].includes(this.game.mode))this.seconds+=elapsed;
     if(this.ticks%5===0&&!this.testMode){
       const stored=this.game.saveCheckpoint();this.refreshContinue();
-      if(!this.user)this.status(stored?'게스트 · 이 기기에 저장':'기기 저장 불가 · 로그인해 주세요',!stored);
+      if(!this.user){const title=this.game.mode==='title';this.status(title?'로그인 전':'게스트 · 저장 안 됨',!title);void stored;}
     }
     if(this.ticks%15===0)void this.sync().catch(()=>undefined);
     if(this.ticks%30===0&&this.adminDialog.open)void this.loadAdmin();

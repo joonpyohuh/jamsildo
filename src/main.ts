@@ -81,11 +81,26 @@ settingsDialog.addEventListener('close', () => {
 });
 rewardDialog.addEventListener('close',()=>canvas.focus({preventScroll:true}));
 continueButton.addEventListener('click',()=>{if(assetsReady){sfx.unlock();game.resumeRun();}});
+const startChoice=must<HTMLDivElement>('#startChoice');
+function toggleStartChoice(open:boolean):void {
+  startChoice.hidden=!open;startButton.setAttribute('aria-expanded',String(open));
+  if(open)must<HTMLButtonElement>('#startRegister').focus({preventScroll:true});
+}
 startButton.addEventListener('click', () => {
-  if(!assetsReady || !accounts.confirmStart())return;
+  if(!assetsReady)return;
+  // 로그인하지 않았으면 바로 시작하지 않고 아래에 게스트 / 회원가입을 펼친다
+  if(!accounts.signedIn){toggleStartChoice(startChoice.hidden);return;}
+  if(!accounts.confirmStart())return;
   sfx.unlock();
   game.onScreenTap();
 });
+must<HTMLButtonElement>('#startGuest').addEventListener('click',()=>{
+  if(!assetsReady)return;
+  sfx.unlock();accounts.playAsGuest();toggleStartChoice(false);
+  game.onScreenTap();
+});
+must<HTMLButtonElement>('#startRegister').addEventListener('click',()=>{if(assetsReady)accounts.openAuth('register');});
+must<HTMLButtonElement>('#startLogin').addEventListener('click',()=>{if(assetsReady)accounts.openAuth('login');});
 volume.addEventListener('change', () => {
   sfx.unlock();
   sfx.play('pickup');
@@ -213,7 +228,12 @@ window.addEventListener('keydown', (e) => {
     return;
   }
   if(game.mode==='embrace'){if(isAttack)game.attackPressed();return;}
-  if (game.mode === 'title' || game.mode === 'down' || game.mode === 'clear') {
+  if (game.mode === 'title') {
+    // 타이틀에서 Enter/Space = '게임 시작' 버튼과 같다 (로그인 전이면 선택지를 펼친다)
+    if (!skill) startButton.click();
+    return;
+  }
+  if (game.mode === 'down' || game.mode === 'clear') {
     if (!skill && accounts.confirmStart()) game.onScreenTap();
     return;
   }

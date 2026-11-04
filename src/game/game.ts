@@ -920,7 +920,11 @@ export class Game {
     this.saveCheckpoint();
   }
 
+  /** 계정으로 로그인했을 때만 진행을 저장한다. 게스트는 저장하지 않는다. */
+  saveEnabled = false;
+
   saveCheckpoint(): boolean {
+    if (!this.saveEnabled) return true;
     if (this.mode === 'title' || this.mode === 'opening' || this.mode === 'slide') return true;
     writeSave(String(Math.max(this.player.maxEnergy, Number(readSave('max-energy')) || 30)), 'max-energy');
     // ponytail: 전투 도중 종료하면 현재 방의 적은 다시 생성한다. 전투 중 객체·타이머 직렬화가 필요할 때 확장한다.
