@@ -24,20 +24,20 @@ export interface FormSpec {
 export const FORMS: Readonly<Record<FormId, FormSpec>> = {
   dagger: {
     id: 'dagger', label: '단검', cooldown: 0.17, range: 34, arc: Math.PI * 0.55,
-    damage: 1, knockback: 85, hitstop: 0.04, shake: 1.5, lunge: 42, swing: 0.1,
+    damage: 10, knockback: 85, hitstop: 0.04, shake: 1.5, lunge: 42, swing: 0.1,
   },
   sword: {
     id: 'sword', label: '장검', cooldown: 0.44, range: 58, arc: Math.PI * 1.15,
-    damage: 2, knockback: 180, hitstop: 0.075, shake: 3.5, lunge: 12, swing: 0.16,
+    damage: 20, knockback: 180, hitstop: 0.075, shake: 3.5, lunge: 12, swing: 0.16,
   },
   bow: {
-    // 너프: 공속 0.34→0.62초, 딜 1.5→0.8. 멀리서 쏘기만 하면 이기던 구조를 깬다.
+    // 안전한 원거리 공격은 근접 형태보다 피해량과 공격속도를 낮게 유지한다.
     id: 'bow', label: '활', cooldown: 0.62, range: 0, arc: 0,
-    damage: 0.8, knockback: 40, hitstop: 0.03, shake: 0.8, lunge: 0, swing: 0.14,
+    damage: 8, knockback: 40, hitstop: 0.03, shake: 0.8, lunge: 0, swing: 0.14,
   },
   knuckle: {
     id: 'knuckle', label: '너클', cooldown: 0.3, range: 30, arc: Math.PI * 0.7,
-    damage: 1.5, knockback: 330, hitstop: 0.1, shake: 4.5, lunge: 0, swing: 0.12,
+    damage: 15, knockback: 330, hitstop: 0.1, shake: 4.5, lunge: 0, swing: 0.12,
   },
 };
 

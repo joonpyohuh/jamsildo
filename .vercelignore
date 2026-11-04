@@ -1,0 +1,15 @@
+node_modules/
+dist/
+.git/
+.vercel/
+*.mp4
+game_assets/**/*.png
+/sena.png
+/sena.expression.png
+/yunseul.png
+/yunseul.expression.png
+asdfasdfasdf.png
+.env*
+supabase/
+tests/
+ACCOUNTS.md

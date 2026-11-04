@@ -36,7 +36,15 @@
         -webkit-touch-callout: none;
         -webkit-tap-highlight-color: transparent;
       }
-      #stage { position: relative; }
+      #viewport {
+        position: fixed;
+        top: env(safe-area-inset-top, 0px);
+        right: env(safe-area-inset-right, 0px);
+        bottom: env(safe-area-inset-bottom, 0px);
+        left: env(safe-area-inset-left, 0px);
+        overflow: hidden;
+      }
+      #stage { position: absolute; }
       #game {
         display: block;
         width: 100%;
@@ -45,6 +53,8 @@
         image-rendering: pixelated;
         cursor: crosshair;
       }
+      #game:focus { outline: none; }
+      #healthHud { position: fixed; top: max(12px, env(safe-area-inset-top)); left: max(12px, env(safe-area-inset-left)); width: min(248px, calc(100% - 156px)); height: auto; image-rendering: pixelated; pointer-events: none; }
       #ui {
         position: absolute;
         inset: 0;
@@ -56,11 +66,12 @@
 
       /* ── 화면 ── */
       .screen {
-        position: absolute;
+        --px: clamp(1px, 0.28vw, 3px);
+        position: fixed;
         inset: 0;
         display: flex;
         flex-direction: column;
-        padding: calc(var(--px) * 48) calc(var(--px) * 56);
+        padding: max(24px, env(safe-area-inset-top)) clamp(24px, 10vw, 168px) max(24px, env(safe-area-inset-bottom));
         background: var(--bg);
         opacity: 0;
         visibility: hidden;
@@ -134,15 +145,15 @@
       }
       @keyframes blink { 50% { opacity: 0.35; } }
 
-      /* ── 보스 이름: 아래 벽, 체력선(x 344–464) 왼쪽 6px에 오른쪽 정렬 ── */
+      /* ── 보스 이름: 체력선 위, 미니맵과 겹치지 않도록 하단에 표시 ── */
       #bossName {
-        position: absolute;
-        right: calc(var(--px) * 142);
-        top: calc(var(--px) * 256);
+        position: fixed;
+        right: max(16px, env(safe-area-inset-right));
+        bottom: calc(var(--px) * 58 + env(safe-area-inset-bottom));
         margin: 0;
         font-family: Galmuri9, monospace;
-        font-size: calc(var(--px) * 10);
-        line-height: calc(var(--px) * 12);
+        font-size: clamp(12px, 1.5vw, 20px);
+        line-height: 1.4;
         color: var(--pale);
         opacity: 0;
         transition: opacity 400ms ease;
@@ -150,33 +161,47 @@
       #bossName.is-on { opacity: 1; }
 
       /* ── 오프닝: 하단 중앙 흰 도트 글씨, 세나는 은색, 우측 상단 건너뛰기 ── */
-      #cine { position: absolute; inset: 0; display: none; pointer-events: none; }
+      #cine { position: fixed; inset: 0; display: none; pointer-events: auto; }
       #cine.is-on { display: block; }
       #cineText {
         position: absolute;
-        left: 0;
-        right: 0;
-        bottom: calc(var(--px) * 22);
+        left: max(16px, env(safe-area-inset-left));
+        right: max(16px, env(safe-area-inset-right));
+        bottom: max(12px, env(safe-area-inset-bottom));
         margin: 0;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 12px;
         text-align: center;
         font-family: Galmuri11, monospace;
-        font-size: calc(var(--px) * 12);
-        line-height: calc(var(--px) * 16);
+        font-size: clamp(16px, 2vw, 28px);
+        line-height: 1.65;
         color: #ffffff;
         word-break: keep-all;
         text-shadow: 0 var(--px) 0 #000;
       }
       #cineText.is-sena { color: #dfe6f0; }
+      /* 세나 대사 옆 표정: 아래 띠 안에 들어가는 20px 얼굴 */
+      #cineFace {
+        width: 36px;
+        height: 36px;
+        flex-shrink: 0;
+        image-rendering: pixelated;
+        border: var(--px) solid #3a3e48;
+      }
+      #cineFace[hidden] { display: none; }
       #cineSkip {
         position: absolute;
-        top: calc(var(--px) * 8);
-        right: calc(var(--px) * 10);
-        padding: var(--px) calc(var(--px) * 4);
+        top: max(8px, env(safe-area-inset-top));
+        right: max(8px, env(safe-area-inset-right));
+        min-height: 44px;
+        padding: 8px 12px;
         border: 0;
         background: transparent;
         font-family: Galmuri9, monospace;
-        font-size: calc(var(--px) * 10);
-        line-height: calc(var(--px) * 12);
+        font-size: clamp(12px, 1.5vw, 18px);
+        line-height: 1.5;
         color: var(--dim);
         cursor: pointer;
         pointer-events: auto;
@@ -185,15 +210,15 @@
 
       /* ── 조작 안내: 화면 중앙, 3초 뒤 사라짐 ── */
       #center {
-        position: absolute;
+        position: fixed;
         left: 0;
         right: 0;
-        top: calc(var(--px) * 124);
+        top: 45%;
         margin: 0;
         text-align: center;
         font-family: Galmuri11, monospace;
-        font-size: calc(var(--px) * 12);
-        line-height: calc(var(--px) * 16);
+        font-size: clamp(14px, 2vw, 24px);
+        line-height: 1.5;
         color: var(--pale);
         opacity: 0;
       }
@@ -205,17 +230,21 @@
         100% { opacity: 0; }
       }
 
-      /* ── 전투 훈수: 바닥 왼쪽 아래 구석, 작은 세나 얼굴 + 한 줄 ── */
+      /* ── 전투 훈수: 상단 중앙, 조작 버튼과 분리 ── */
       #hint {
-        position: absolute;
-        left: calc(var(--px) * 20);
-        top: calc(var(--px) * 234);
+        --px: 1.5px;
+        position: fixed;
+        left: 50%;
+        top: max(52px, calc(env(safe-area-inset-top) + 40px));
+        transform: translateX(-50%);
+        width: max-content;
+        max-width: min(660px, calc(100% - 288px));
         display: flex;
         align-items: center;
         gap: calc(var(--px) * 4);
         margin: 0;
-        padding: var(--px) calc(var(--px) * 4) var(--px) var(--px);
-        background: rgba(7, 8, 10, 0.72);
+        padding: 6px 10px 6px 6px;
+        background: rgba(7, 8, 10, 0.9);
         box-shadow: 0 0 0 var(--px) rgba(201, 204, 211, 0.18);
         opacity: 0;
       }
@@ -230,9 +259,9 @@
         font-size: calc(var(--px) * 10);
         line-height: calc(var(--px) * 12);
         color: #eef0f3;
-        white-space: nowrap;
+        word-break: keep-all;
       }
-      #hint.is-on { animation: hint 3.2s steps(16, end) forwards; }
+      #hint.is-on { animation: hint 6s steps(30, end) forwards; }
       @keyframes hint {
         0% { opacity: 0; }
         4% { opacity: 1; }
@@ -242,13 +271,16 @@
 
       /* ── 대사창: 주황 이중 테두리, 왼쪽 글, 오른쪽 얼굴, 다 나오면 ▼ ── */
       #talk {
-        position: absolute;
-        left: calc(var(--px) * 12);
-        right: calc(var(--px) * 12);
-        bottom: calc(var(--px) * 10);
-        height: calc(var(--px) * 66);
+        --px: clamp(1px, 0.15vw, 2px);
+        position: fixed;
+        left: 50%;
+        transform: translateX(-50%);
+        width: min(760px, calc(100% - 24px - env(safe-area-inset-left) - env(safe-area-inset-right)));
+        bottom: max(16px, calc(env(safe-area-inset-bottom) + 8px));
+        min-height: 100px;
+        height: auto;
         display: none;
-        padding: calc(var(--px) * 9) calc(var(--px) * 12);
+        padding: calc(var(--px) * 9) calc(var(--px) * 12) calc(var(--px) * 16);
         background: #170f26;
         border: calc(var(--px) * 2) solid #f4a83c;
         box-shadow:
@@ -270,8 +302,8 @@
       #talkText {
         margin: 0;
         font-family: Galmuri11, monospace;
-        font-size: calc(var(--px) * 12);
-        line-height: calc(var(--px) * 18);
+        font-size: clamp(14px, 1.8vw, 24px);
+        line-height: 1.65;
         color: #f3f0ff;
         word-break: keep-all;
       }
@@ -285,12 +317,13 @@
       #talkNext {
         position: absolute;
         left: 50%;
-        bottom: calc(var(--px) * -1);
+        bottom: 4px;
         transform: translateX(-50%);
         margin: 0;
         font-family: Galmuri9, monospace;
-        font-size: calc(var(--px) * 10);
-        line-height: calc(var(--px) * 10);
+        font-size: 10px;
+        line-height: 1.4;
+        white-space: nowrap;
         color: #f4a83c;
         opacity: 0;
       }
@@ -318,28 +351,48 @@
       /* ── 모바일 공격 버튼 ── */
       #attack {
         position: fixed;
-        right: max(20px, env(safe-area-inset-right));
-        bottom: max(24px, env(safe-area-inset-bottom));
-        width: 76px;
-        height: 76px;
+        left: max(16px, env(safe-area-inset-left));
+        bottom: max(16px, calc(env(safe-area-inset-bottom) + 8px));
+        width: 80px;
+        height: 80px;
         padding: 0;
         border: 2px solid rgba(201, 204, 211, 0.45);
         border-radius: 0;
         background: rgba(8, 9, 11, 0.55);
         color: var(--pale);
         font-family: Galmuri11, monospace;
-        font-size: 24px;
-        line-height: 24px;
+        font-size: 18px;
+        line-height: 20px;
         touch-action: none;
       }
       #attack[hidden] { display: none; }
       #attack.is-down { background: var(--pale); color: var(--bg); }
+      #joystick {
+        position: fixed;
+        right: max(16px, env(safe-area-inset-right));
+        bottom: max(16px, calc(env(safe-area-inset-bottom) + 8px));
+        display: grid;
+        place-items: center;
+        width: 112px;
+        height: 112px;
+        padding: 0;
+        border: 2px solid #aeb8cb66;
+        border-radius: 50%;
+        background: #10172299;
+        touch-action: none;
+      }
+      #joystick[hidden] { display: none; }
+      #joystickKnob { width: 44px; height: 44px; border: 2px solid #c9ccd3aa; border-radius: 50%; background: #7d8da8aa; pointer-events: none; }
+      #joystickLabel { position: absolute; bottom: 5px; color: #c9ccd3aa; font: 10px Galmuri9, monospace; pointer-events: none; }
+      html.touch-controls #skills { bottom: max(144px, calc(env(safe-area-inset-bottom) + 136px)); }
+      html.touch-controls #spiritSlots { bottom: max(112px, calc(env(safe-area-inset-bottom) + 104px)); }
+      html.touch-controls #spiritSummary { bottom: max(162px, calc(env(safe-area-inset-bottom) + 154px)); }
 
-      /* ── 모바일 스킬 버튼: 공격 버튼 위에 한 줄 ── */
+      /* ── 모바일 스킬 버튼: 오른쪽 아래 ── */
       #skills {
         position: fixed;
         right: max(20px, env(safe-area-inset-right));
-        bottom: calc(max(24px, env(safe-area-inset-bottom)) + 88px);
+        bottom: max(16px, calc(env(safe-area-inset-bottom) + 8px));
         display: flex;
         gap: 6px;
       }
@@ -357,31 +410,138 @@
         touch-action: none;
       }
       #skills button:active { background: #ff8a2a; color: var(--bg); }
+      #skills button { position: relative; height: 52px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; }
+      .skill-name { font-size: 8px; line-height: 11px; max-width: 40px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      #skills button:disabled { opacity: 0.45; }
+      #skills button[data-cooldown]:not([data-cooldown=""])::after { content: attr(data-cooldown); position: absolute; inset: 0; display: grid; place-items: center; background: #08090bd9; color: #c9ccd3; font-size: 12px; }
+      #attack.is-embrace { font-size: 12px; border-color: #f4c790; color: #f4c790; }
+      #loadStatus { position: absolute; bottom: 18px; margin: 0; font-size: 11px; color: var(--dim); }
+      #spiritSlots { position: fixed; bottom: max(84px, calc(env(safe-area-inset-bottom) + 76px)); left: max(16px, env(safe-area-inset-left)); display: flex; gap: 6px; }
+      #spiritSlots[hidden] { display: none; }
+      #spiritSlots button { position: relative; width: 44px; height: 44px; padding: 4px; border: 1px solid #5c626d; background: #101216e6; cursor: pointer; }
+      #spiritSlots button.is-active { border: 2px solid var(--accent); }
+      #spiritSlots img { width: 30px; height: 30px; object-fit: contain; image-rendering: pixelated; }
+      #spiritSlots span { position: absolute; right: 1px; bottom: 1px; color: #ffe1a5; font: 10px Galmuri9, monospace; }
+      #spiritSummary { position: fixed; left: max(16px, env(safe-area-inset-left)); bottom: max(134px, calc(env(safe-area-inset-bottom) + 126px)); margin: 0; font: 10px Galmuri9, monospace; color: var(--pale); background: #08090bbd; }
+      #energyHud { position: fixed; top: max(54px, calc(env(safe-area-inset-top) + 42px)); left: max(12px, env(safe-area-inset-left)); width: min(230px, calc(100% - 168px)); font: 10px Galmuri9, monospace; color: #d3dce5; background: #08090ba0; }
+      #energyHud[hidden] { display: none; }
+      #energyBar { display: block; width: 100%; height: 5px; margin-top: 4px; accent-color: #7fa2c2; }
+      #stageInfo { position: fixed; top: max(122px, calc(env(safe-area-inset-top) + 110px)); right: max(12px, env(safe-area-inset-right)); max-width: 150px; margin: 0; text-align: right; font: 10px Galmuri9, monospace; color: var(--pale); background: #08090bbd; pointer-events: none; }
+      #bossHud { position: fixed; top: max(12px, env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); width: min(620px, calc(100% - 310px)); background: #08090be6; border: 1px solid #62444a; padding: 6px 10px; }
+      #bossHud[hidden] { display: none; }
+      #bossHud #bossName { position: static; opacity: 1; margin: 0 0 5px; font: 12px Galmuri11, monospace; color: #ebc3ba; }
+      #bossHealth { position: relative; height: 6px; background: #35262c; }
+      #bossHealthFill { display: block; height: 100%; background: #d28881; transition: width 80ms linear; }
+      #bossHealthTicks i { position: absolute; top: 0; bottom: 0; width: 1px; background: #130c10; }
+      #bossPattern { margin: 5px 0 0; color: #c3b5bd; font: 10px/1.4 Galmuri9, monospace; }
+      html[data-boss] #hint { top: max(84px, calc(env(safe-area-inset-top) + 72px)); }
+      #rewardDialog { width: min(580px, calc(100% - 32px)); max-height: calc(100% - 32px); padding: 22px; border: 1px solid #d6a965; background: #101216; color: var(--pale); font: 14px Galmuri11, monospace; }
+      #rewardDialog::backdrop { background: #000b; }
+      #rewardTitle { margin: 0 0 10px; font-size: 22px; font-weight: 400; }
+      #rewardDescription { margin: 0 0 18px; font-size: 12px; line-height: 1.6; color: var(--dim); }
+      #rewardChoices { display: grid; gap: 10px; }
+      .spirit-choice { display: grid; grid-template-columns: 52px 1fr; gap: 6px 12px; align-items: center; min-height: 84px; padding: 12px; text-align: left; border: 1px solid #5c626d; border-radius: 0; background: #17191e; color: var(--pale); font: 12px/1.5 Galmuri11, monospace; white-space: pre-line; cursor: pointer; }
+      .spirit-choice img { grid-row: span 2; width: 48px; height: 48px; object-fit: contain; image-rendering: pixelated; }
+      .spirit-choice strong { font-weight: 400; color: var(--accent); }
+      .spirit-choice span { font-size: 10px; }
+      .spirit-choice:hover { border-color: var(--accent); }
+      .spirit-choice:disabled { opacity: 0.5; }
+      #skillAim { position: fixed; width: 28px; height: 28px; border: 1px solid #f4c790; border-radius: 50%; background: #e0a45825; pointer-events: none; }
+      .map-room.is-boss { border-color: #e79c98; }
+      .map-room.is-rest { background: #51736b; }
+      .map-room.is-shop { background: #9c7b40; }
+      #title { align-items: center; justify-content: center; cursor: default; text-align: center; }
+      #title .title { margin: 0; font-size: clamp(48px, 8vw, 96px); line-height: 1.25; }
+      #title .tagline { margin: 16px 0 0; font-size: 14px; line-height: 1.5; letter-spacing: 0.15em; color: var(--dim); }
+      .menu-actions { display: flex; flex-direction: column; gap: 8px; margin-top: 32px; }
+      .menu-button {
+        min-width: 184px; min-height: 48px; padding: 12px 24px;
+        border: 1px solid var(--pale); border-radius: 0; background: #111318;
+        color: var(--pale); font: 16px Galmuri11, monospace; cursor: pointer;
+      }
+      .menu-button:hover { background: #252830; }
+      #openSettings { border-color: transparent; background: transparent; font-size: 14px; color: var(--dim); }
+      button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
+      #settingsToggle {
+        position: fixed; top: max(84px, calc(env(safe-area-inset-top) + 72px)); left: max(12px, env(safe-area-inset-left));
+        min-height: 44px; padding: 8px 12px; border: 1px solid var(--line); border-radius: 0;
+        background: #08090bbd; color: var(--pale); font: 12px Galmuri11, monospace; cursor: pointer;
+      }
+      #settings {
+        width: min(360px, calc(100% - 32px)); max-height: calc(100% - 32px); padding: 24px;
+        border: 1px solid var(--line); border-radius: 0; background: #101216;
+        color: var(--pale); font: 14px Galmuri11, monospace;
+      }
+      #settings::backdrop { background: #000b; }
+      #settings h2 { margin: 0 0 24px; font-size: 24px; font-weight: 400; }
+      #settings label { display: flex; justify-content: space-between; align-items: center; gap: 16px; }
+      #settings output { color: var(--accent); }
+      #settings input { display: block; width: 100%; height: 44px; margin: 0 0 16px; accent-color: var(--accent); }
+      #settings .menu-button { width: 100%; min-width: 0; }
+      #minimap {
+        position: fixed; top: max(12px, env(safe-area-inset-top)); right: max(12px, env(safe-area-inset-right));
+        width: 120px; height: 104px; border: 1px solid #4a4f5a; background: #08090bbd;
+        display: grid; place-items: center; padding: 8px 8px 24px; pointer-events: none;
+      }
+      #minimap[hidden] { display: none; }
+      #mapRooms { position: relative; }
+      .map-room { position: absolute; width: 16px; height: 10px; border: 1px solid #828894; background: #343944; }
+      .map-room.is-current { border-color: #ffe1a5; background: var(--accent); }
+      .map-room.is-spirit::before { content: ''; position: absolute; right: -2px; top: -2px; width: 4px; height: 4px; background: #ff8a2a; }
+      .map-room.is-current::after { content: ''; position: absolute; width: 4px; height: 4px; background: #101216; top: 2px; left: 5px; }
+      .map-link { position: absolute; background: #828894; }
+      .map-key { position: absolute; bottom: 7px; font: 10px Galmuri9, monospace; color: var(--accent); }
+      #roomLabel { position: fixed; top: max(12px, env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); margin: 0; padding: 6px 10px; color: #ffc46b; background: #160d12e6; font: 14px Galmuri11, monospace; white-space: nowrap; }
+      @media (orientation: portrait) {
+        #bossHud { top: max(156px, calc(env(safe-area-inset-top) + 144px)); width: calc(100% - 32px); }
+        html[data-boss] #hint { top: max(236px, calc(env(safe-area-inset-top) + 224px)); }
+        #cineText { bottom: auto; top: calc(50% + 28.125vw + 16px); }
+        #hint { top: max(168px, calc(env(safe-area-inset-top) + 156px)); max-width: calc(100% - 32px); }
+        #roomLabel { top: max(132px, calc(env(safe-area-inset-top) + 120px)); }
+        .screen .body { font-size: 14px; line-height: 1.8; }
+        .screen .rows dt, .screen .rows dd { font-size: 14px; line-height: 1.9; }
+        .screen .rows dt { width: 54px; }
+        .screen .cta { font-size: 14px; line-height: 1.6; }
+      }
+      @media (max-height: 450px) {
+        #settings { padding: 16px; }
+        #settings h2 { margin-bottom: 12px; font-size: 20px; }
+        #settings input { height: 36px; margin-bottom: 8px; }
+        .screen { --px: 1px; padding: 16px max(24px, env(safe-area-inset-left)); }
+        .screen .rule { margin: 8px 0; }
+        .screen .rows { margin: 8px 0 0; }
+        #talk { min-height: 88px; }
+      }
+      @media (orientation: landscape) {
+        html.touch-controls #skills { right: max(152px, calc(env(safe-area-inset-right) + 144px)); bottom: max(16px, calc(env(safe-area-inset-bottom) + 8px)); }
+      }
+      @media (max-width: 380px) and (orientation: portrait) {
+        html.touch-controls #skills:not([hidden]) { display: grid; grid-template-columns: repeat(2, 44px); }
+      }
     </style>
   </head>
   <body>
+    <div id="viewport">
     <div id="stage">
-      <canvas id="game" width="480" height="270"></canvas>
+      <canvas id="game" width="480" height="270" tabindex="0" aria-label="잠실도 게임 화면"></canvas>
       <div id="ui">
         <section id="title" class="screen">
-          <p class="label">CHAPTER 1 · STAGE 1</p>
           <h1 class="title">잠실도</h1>
-          <hr class="rule" />
-          <p class="body">이 게임은 우울과 오래된 상처를 다룹니다.</p>
-          <dl class="rows">
-            <div><dt>이동</dt><dd>클릭 · 터치</dd></div>
-            <div><dt>공격</dt><dd>Space · 버튼</dd></div>
-            <div><dt>정령</dt><dd>Q W E R</dd></div>
-          </dl>
-          <p class="cta">눌러서 시작</p>
+          <p class="tagline">we can win</p>
+          <div class="menu-actions">
+            <button id="startGame" class="menu-button" type="button">게임 시작</button>
+            <button id="continueGame" class="menu-button" type="button" hidden>계속하기</button>
+            <button id="openSettings" class="menu-button" type="button">설정</button>
+          </div>
+          <p id="loadStatus">잠실도를 준비하고 있어요…</p>
         </section>
 
         <section id="down" class="screen">
           <p class="label">DOWN</p>
           <h2 class="headline">쓰러졌다.</h2>
           <hr class="rule" />
-          <p class="body is-dim">방에서 다시 눈을 뜬다.</p>
-          <p class="cta">눌러서 다시</p>
+          <p class="body is-dim">기록은 남아 있다. 이 스테이지에서 다시 걷는다.</p>
+          <p class="cta">눌러서 다시 도전</p>
         </section>
 
         <section id="clear" class="screen">
@@ -396,29 +556,92 @@
         </section>
 
         <div id="cine">
-          <p id="cineText"></p>
+          <p id="cineText"><img id="cineFace" alt="" hidden /><span id="cineLine"></span></p>
           <button id="cineSkip" type="button">건너뛰기</button>
         </div>
         <p id="center"></p>
-        <p id="hint"><img src="/portraits/sena.png" alt="세나" /><span id="hintText"></span></p>
+        <p id="hint"><img id="hintFace" src="/portraits/expr/sena-2.png" alt="세나" /><span id="hintText"></span></p>
         <div id="talk">
           <div id="talkBody">
             <p id="talkName"></p>
             <p id="talkText"></p>
           </div>
           <img id="talkFace" alt="" />
-          <p id="talkNext">▼</p>
+          <p id="talkNext">Space · 클릭으로 계속 ▼</p>
         </div>
-        <p id="bossName"></p>
+        <section id="bossHud" hidden aria-label="보스 체력">
+          <p id="bossName"></p>
+          <div id="bossHealth"><span id="bossHealthFill"></span><span id="bossHealthTicks"></span></div>
+          <p id="bossPattern"></p>
+        </section>
+        <div id="energyHud" hidden><span id="energyText"></span><progress id="energyBar" value="30" max="30" aria-label="기력"></progress></div>
         <p id="formTag"></p>
+        <p id="roomLabel" hidden></p>
       </div>
     </div>
+    </div>
+    <div id="minimap" hidden role="img" aria-label="방 지도">
+      <div id="mapRooms"></div>
+      <span class="map-key">● 현재 위치</span>
+    </div>
+    <canvas id="healthHud" width="124" height="16" hidden aria-label="체력"></canvas>
+    <button id="settingsToggle" type="button" hidden aria-label="게임 설정 열기">설정</button>
+    <p id="stageInfo" hidden></p>
+    <div id="spiritSlots" hidden aria-label="장착 정령"></div>
+    <p id="spiritSummary" hidden></p>
+    <span id="skillAim" hidden></span>
+    <div id="accountBar"><button id="accountToggle" type="button">로그인 / 가입</button><span id="saveStatus" role="status" aria-live="polite">계정 확인 중…</span></div>
+    <dialog id="accountDialog" class="account-dialog" aria-labelledby="accountTitle">
+      <div class="dialog-heading"><h2 id="accountTitle">기록을 이어서</h2><button type="button" data-close aria-label="계정 창 닫기">×</button></div>
+      <div id="signedOut">
+        <p>아이디와 비밀번호만 있으면 됩니다.<br>로그인하면 다른 기기에서도 이어할 수 있어요.</p>
+        <form id="loginForm">
+          <label for="username">아이디</label><input id="username" name="username" autocomplete="username" pattern="[A-Za-z0-9_]{3,20}" minlength="3" maxlength="20" required autocapitalize="none" spellcheck="false" placeholder="영문·숫자·밑줄 3~20자" />
+          <label for="password">비밀번호</label><input id="password" name="password" type="password" autocomplete="current-password" maxlength="72" required placeholder="회원가입 시 8자 이상" />
+          <div class="account-actions"><button type="submit" value="login">로그인</button><button type="submit" value="register">회원가입</button></div>
+        </form>
+        <p><small>이메일은 수집하지 않습니다. 비밀번호를 잊으면 이메일로 복구할 수 없으니 안전하게 보관해 주세요.</small></p>
+      </div>
+      <div id="signedIn" hidden>
+        <p id="accountSummary"></p>
+        <div class="account-actions"><button id="saveNow" type="button">지금 저장</button><button id="accountHome" type="button">저장 후 타이틀</button><button id="openAdmin" type="button" hidden>관리자 콘솔</button><button id="logout" type="button">저장 후 로그아웃</button></div>
+        <div class="account-actions"><button id="importGuest" type="button" hidden>이 기기의 이전 기록 가져오기</button><button id="loadCloud" type="button" hidden>서버 기록 다시 불러오기</button><button id="backupSave" type="button">기기 기록 내려받기</button></div>
+        <details><summary>비밀번호 변경</summary><form id="passwordForm"><label for="currentPassword">현재 비밀번호</label><input id="currentPassword" type="password" autocomplete="current-password" required maxlength="72" /><label for="newPassword">새 비밀번호</label><input id="newPassword" type="password" autocomplete="new-password" required minlength="8" maxlength="72" /><button type="submit">비밀번호 변경</button></form></details>
+      </div>
+      <p id="accountMessage" class="account-message" role="status" aria-live="polite"></p>
+      <small>5초마다 기기에 저장 · 15초마다 계정에 저장<br>전투 중 종료하면 현재 방의 적은 다시 등장합니다.</small>
+    </dialog>
+    <dialog id="adminDialog" class="account-dialog" aria-labelledby="adminTitle">
+      <div class="dialog-heading"><div><small>JAMSILDO · OPERATIONS</small><h2 id="adminTitle">관리자 콘솔</h2></div><button type="button" data-close aria-label="관리자 콘솔 닫기">×</button></div>
+      <div class="admin-kpis" id="adminKpis"></div>
+      <p id="adminUpdated"><small>관리자 계정은 유저 통계에서 제외됩니다. 접속 중은 최근 60초 이내 통신 기준입니다.</small></p>
+      <h3>플레이어</h3>
+      <form class="admin-filters" id="adminSearch"><input id="playerSearch" aria-label="플레이어 아이디 검색" placeholder="아이디 검색" maxlength="20" pattern="[A-Za-z0-9_]*" /><select id="playerOrder" aria-label="플레이어 정렬"><option value="created_at">최근 가입</option><option value="last_seen">최근 접속</option><option value="play_seconds">플레이 시간</option><option value="max_stage">최고 스테이지</option></select><button type="submit">조회</button><button id="refreshAdmin" type="button">새로고침</button></form>
+      <div class="table-scroll"><table><thead><tr><th>아이디 / 상태</th><th>플레이 시간</th><th>현재 / 최고</th><th>가입일 (한국)</th><th>최근 접속 (한국)</th><th>계정 관리</th></tr></thead><tbody id="playerRows"></tbody></table></div>
+      <div class="admin-paging"><button id="prevPlayers" type="button">이전</button><span id="playerPage"></span><button id="nextPlayers" type="button">다음</button></div>
+      <h3>전체 스테이지 · 테스트 이동</h3><p><small>스테이지를 누르면 바로 입장합니다. 테스트 진행은 실제 저장 기록과 분리되며, 콘솔에서 돌아갈 수 있습니다.</small></p>
+      <div class="account-actions"><button id="leaveTest" type="button" hidden>테스트 종료 · 내 기록으로</button></div><div id="adminStages"></div>
+      <h3>최근 운영 기록</h3><ul id="adminAudit"></ul>
+      <p id="adminMessage" class="account-message" role="status" aria-live="polite"></p>
+    </dialog>
+    <dialog id="rewardDialog" aria-labelledby="rewardTitle"><h2 id="rewardTitle"></h2><p id="rewardDescription"></p><div id="rewardChoices"></div></dialog>
+    <dialog id="settings" aria-labelledby="settingsTitle">
+      <form method="dialog">
+        <h2 id="settingsTitle">설정</h2>
+        <label for="brightness">밝기 <output id="brightnessValue" for="brightness">100%</output></label>
+        <input id="brightness" type="range" min="60" max="160" step="5" value="100" />
+        <label for="volume">사운드 <output id="volumeValue" for="volume">50%</output></label>
+        <input id="volume" type="range" min="0" max="100" step="5" value="50" />
+        <button class="menu-button" value="close">돌아가기</button>
+      </form>
+    </dialog>
     <button id="attack" type="button" hidden aria-label="공격">공격</button>
+    <button id="joystick" type="button" tabindex="-1" hidden aria-label="이동 조이스틱: 원하는 방향으로 드래그"><span id="joystickKnob"></span><span id="joystickLabel">이동</span></button>
     <div id="skills" hidden>
-      <button type="button" data-skill="q">Q</button>
-      <button type="button" data-skill="w">W</button>
-      <button type="button" data-skill="e">E</button>
-      <button type="button" data-skill="r">R</button>
+      <button type="button" data-skill="q"><span>Q</span><span class="skill-name"></span></button>
+      <button type="button" data-skill="w"><span>W</span><span class="skill-name"></span></button>
+      <button type="button" data-skill="e"><span>E</span><span class="skill-name"></span></button>
+      <button type="button" data-skill="r"><span>R</span><span class="skill-name"></span></button>
     </div>
     <script type="module" src="/src/main.ts"></script>
   </body>

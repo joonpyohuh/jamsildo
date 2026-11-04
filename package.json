@@ -7,7 +7,11 @@
     "dev": "vite --host",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview --host",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test:campaign": "node tests/campaign.cjs",
+    "test:responsive": "node tests/responsive.cjs",
+    "test:accounts": "node tests/accounts.cjs",
+    "assets:build": "node scripts/build-assets.cjs"
   },
   "devDependencies": {
     "typescript": "^5.9.3",

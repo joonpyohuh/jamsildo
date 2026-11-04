@@ -3,3 +3,9 @@ dist/
 # 레퍼런스 자료(타 게임 영상/스크린샷)는 올리지 않는다
 *.mp4
 asdfasdfasdf.png
+
+.vercel
+.env*
+!.env.example
+# 원본 콘셉트 아트(대용량)는 올리지 않는다. 게임은 public/sprites의 축소본을 쓴다.
+game_assets/**/*.png

@@ -1,4 +1,4 @@
-/** 내부 해상도. 화면에는 정수배로 확대해서 도트를 유지한다. */
+/** 내부 해상도. 확대 비율은 브라우저에 맞추고 도트 필터를 유지한다. */
 export const VIEW_W = 480;
 export const VIEW_H = 270;
 
@@ -26,16 +26,19 @@ export const DOOR_HALF = 20;
 
 /**
  * 정령 속성. 정령방의 벽지·문 색과 보스의 속성이 이걸 따른다.
- * 지금 구현된 정령은 불뿐이라 IMPLEMENTED_ELEMENTS 안에서만 뽑는다.
+ * 일반 정령 다섯 속성. 혼돈은 후반 정령 선택에서 열린다.
  */
-export type Element = 'fire' | 'water' | 'wood';
-export const IMPLEMENTED_ELEMENTS: readonly Element[] = ['fire'];
+export type Element = 'fire' | 'water' | 'wood' | 'dark' | 'light' | 'chaos';
+export const IMPLEMENTED_ELEMENTS: readonly Element[] = ['fire', 'water', 'wood', 'dark', 'light'];
 export const ELEMENT: Readonly<Record<Element, {
   label: string; wall: string; wallLine: string; door: string; glow: string;
 }>> = {
   fire: { label: '불', wall: '#3b1519', wallLine: '#4c1b21', door: '#d0452f', glow: '#ff8a2a' },
   water: { label: '물', wall: '#13223a', wallLine: '#1a2d4b', door: '#3474c8', glow: '#5eb0ff' },
   wood: { label: '나무', wall: '#15301d', wallLine: '#1c3e26', door: '#3f9a52', glow: '#8fdc6a' },
+  dark: { label: '어둠', wall: '#251735', wallLine: '#3c2452', door: '#9662c7', glow: '#b88aff' },
+  light: { label: '빛', wall: '#383021', wallLine: '#53492f', door: '#d1b46a', glow: '#fff0b1' },
+  chaos: { label: '혼돈', wall: '#301b38', wallLine: '#583060', door: '#c779dd', glow: '#eb9cff' },
 };
 
 /** 레퍼런스처럼 대미지 숫자를 띄울지. 기획서의 '정보 최소' 원칙 때문에 기본은 끈다. */

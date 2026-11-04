@@ -12,6 +12,13 @@ export class Sfx {
   private ac: AudioContext | null = null;
   private out: GainNode | null = null;
   private noiseBuf: AudioBuffer | null = null;
+  private volume = 0.5;
+
+  setVolume(volume: number): void {
+    if (!Number.isFinite(volume)) return;
+    this.volume = Math.max(0, Math.min(1, volume));
+    if (this.out && this.ac) this.out.gain.setTargetAtTime(this.volume, this.ac.currentTime, 0.02);
+  }
 
   unlock(): void {
     if (this.ac) {
@@ -20,7 +27,7 @@ export class Sfx {
     }
     const ac = new AudioContext();
     const out = ac.createGain();
-    out.gain.value = 0.5;
+    out.gain.value = this.volume;
     const comp = ac.createDynamicsCompressor();
     out.connect(comp);
     comp.connect(ac.destination);

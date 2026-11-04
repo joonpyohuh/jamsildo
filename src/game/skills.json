@@ -1,0 +1,38 @@
+{
+  "water": {
+    "q": {"name":"물방울 탄","type":"projectile","cost":10,"cd":8,"range":224,"damage":10,"status":"stun","duration":1.5},
+    "w": {"name":"맑은 물","type":"heal","cost":20,"cd":30,"heal":0.3},
+    "e": {"name":"물의 막","type":"defense","cost":15,"cd":20,"duration":8},
+    "r": {"name":"사방 물대포","type":"attack","cost":30,"cd":55,"range":192,"damage":30}
+  },
+  "wood": {
+    "q": {"name":"나무벽","type":"defense","cost":10,"cd":10,"range":64,"duration":6},
+    "w": {"name":"단단해지기","type":"defense","cost":10,"cd":12},
+    "e": {"name":"가시 덩굴","type":"attack","cost":15,"cd":8,"range":128,"damage":20,"status":"root","duration":1},
+    "r": {"name":"숲의 성역","type":"heal","cost":32,"cd":60,"range":128,"damage":5,"duration":8}
+  },
+  "fire": {
+    "q": {"name":"불씨 탄","type":"projectile","cost":8,"cd":4,"range":256,"damage":20,"status":"burn","duration":3},
+    "w": {"name":"점화 돌진","type":"attack","cost":12,"cd":10,"range":96,"duration":0.3},
+    "e": {"name":"불꽃 갑옷","type":"defense","cost":15,"cd":18,"duration":5},
+    "r": {"name":"대폭발","type":"attack","cost":36,"cd":65,"range":160,"damage":60,"duration":1}
+  },
+  "dark": {
+    "q": {"name":"그림자 단도","type":"projectile","cost":8,"cd":5,"range":224,"damage":15,"status":"mark","duration":3},
+    "w": {"name":"그림자 이동","type":"defense","cost":12,"cd":10,"range":192,"duration":1},
+    "e": {"name":"어둠 장막","type":"control","cost":15,"cd":16,"range":96,"duration":4},
+    "r": {"name":"그림자 처형","type":"attack","cost":36,"cd":70,"range":480,"damage":50}
+  },
+  "light": {
+    "q": {"name":"빛 화살","type":"projectile","cost":8,"cd":5,"range":256,"damage":20},
+    "w": {"name":"축복","type":"heal","cost":18,"cd":25,"heal":0.15,"duration":5},
+    "e": {"name":"섬광","type":"control","cost":15,"cd":18,"range":96,"duration":1},
+    "r": {"name":"빛의 기둥","type":"defense","cost":36,"cd":70,"range":96,"damage":15,"duration":6}
+  },
+  "chaos": {
+    "q": {"name":"뒤섞인 탄","type":"projectile","cost":10,"cd":4,"range":256},
+    "w": {"name":"자리 바꾸기","type":"control","cost":15,"cd":12,"range":256},
+    "e": {"name":"동전 던지기","type":"special","cost":0,"cd":30},
+    "r": {"name":"붕괴","type":"attack","cost":0,"cd":120,"duration":5}
+  }
+}

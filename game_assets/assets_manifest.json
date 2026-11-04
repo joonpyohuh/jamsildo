@@ -1,0 +1,41 @@
+{
+  "project": "jamsildo",
+  "source_document": "잠실도_기획서_v3.pdf",
+  "asset_set": "monsters_and_lower_spirits_v1",
+  "visual_style": "2d_pixel_art_roguelike",
+  "format": "png",
+  "background": "transparent",
+  "asset_count": 25,
+  "notes": [
+    "The original game design document leaves most middle bosses and all medium/upper spirit evolution names/designs undefined; only named chapter enemies/bosses and six lower-element spirit concepts are included.",
+    "These are individual static concept sprites with variable canvas sizes, not normalized game-engine sprite sheets or animations.",
+    "The chaos spirit has no official in-story name yet."
+  ],
+  "assets": [
+    {"id": "enemy_ch01_normal_annoyance", "type": "enemy", "chapter": 1, "rank": "normal", "name_ko": "귀찮음", "name_en": "Annoyance", "path": "monsters/chapter_01/enemy_ch01_normal_annoyance.png"},
+    {"id": "enemy_ch01_normal_exhaustion", "type": "enemy", "chapter": 1, "rank": "normal", "name_ko": "힘듦", "name_en": "Exhaustion", "path": "monsters/chapter_01/enemy_ch01_normal_exhaustion.png"},
+    {"id": "enemy_ch01_normal_depressed_mood", "type": "enemy", "chapter": 1, "rank": "normal", "name_ko": "우울감", "name_en": "Depressed Mood", "path": "monsters/chapter_01/enemy_ch01_normal_depressed_mood.png"},
+    {"id": "boss_ch01_stage03_soggy_blanket", "type": "boss", "chapter": 1, "stage": 3, "rank": "midchapter", "name_ko": "눅눅한 이불", "name_en": "Soggy Blanket", "path": "monsters/chapter_01/boss_ch01_stage03_soggy_blanket.png"},
+    {"id": "boss_ch01_stage05_apathy", "type": "boss", "chapter": 1, "stage": 5, "rank": "chapter_final", "name_ko": "무기력", "name_en": "Apathy", "path": "monsters/chapter_01/boss_ch01_stage05_apathy.png"},
+    {"id": "enemy_ch02_normal_mirror_shards", "type": "enemy", "chapter": 2, "rank": "normal", "name_ko": "거울 조각", "name_en": "Mirror Shards", "path": "monsters/chapter_02/enemy_ch02_normal_mirror_shards.png"},
+    {"id": "enemy_ch02_normal_whispers", "type": "enemy", "chapter": 2, "rank": "normal", "name_ko": "수군거림", "name_en": "Whispers", "path": "monsters/chapter_02/enemy_ch02_normal_whispers.png"},
+    {"id": "enemy_ch02_normal_stares", "type": "enemy", "chapter": 2, "rank": "normal", "name_ko": "시선", "name_en": "Stares", "path": "monsters/chapter_02/enemy_ch02_normal_stares.png"},
+    {"id": "boss_ch02_stage03_locked_apartment_door", "type": "boss", "chapter": 2, "stage": 3, "rank": "midchapter", "name_ko": "닫힌 자취방 문", "name_en": "Locked Apartment Door", "path": "monsters/chapter_02/boss_ch02_stage03_locked_apartment_door.png"},
+    {"id": "boss_ch02_stage05_distorted_self_reflection", "type": "boss", "chapter": 2, "stage": 5, "rank": "chapter_final", "name_ko": "자존감 (일그러진 거울상)", "name_en": "Distorted Self Reflection", "path": "monsters/chapter_02/boss_ch02_stage05_distorted_self_reflection.png"},
+    {"id": "enemy_ch03_normal_laughter_echo", "type": "enemy", "chapter": 3, "rank": "normal", "name_ko": "웃음소리", "name_en": "Laughter Echo", "path": "monsters/chapter_03/enemy_ch03_normal_laughter_echo.png"},
+    {"id": "enemy_ch03_normal_group_chat_alert", "type": "enemy", "chapter": 3, "rank": "normal", "name_ko": "단톡방 알림", "name_en": "Group Chat Alert", "path": "monsters/chapter_03/enemy_ch03_normal_group_chat_alert.png"},
+    {"id": "enemy_ch03_normal_turned_back_shadow", "type": "enemy", "chapter": 3, "rank": "normal", "name_ko": "등 돌린 그림자", "name_en": "Turned Back Shadow", "path": "monsters/chapter_03/enemy_ch03_normal_turned_back_shadow.png"},
+    {"id": "boss_ch03_stage03_group_center", "type": "boss", "chapter": 3, "stage": 3, "rank": "midchapter", "name_ko": "무리의 중심", "name_en": "Group Center", "path": "monsters/chapter_03/boss_ch03_stage03_group_center.png"},
+    {"id": "boss_ch03_stage05_they_merged", "type": "boss", "chapter": 3, "stage": 5, "rank": "chapter_final", "name_ko": "그 애들 (합쳐진 거대한 하나)", "name_en": "They Merged", "path": "monsters/chapter_03/boss_ch03_stage05_they_merged.png"},
+    {"id": "enemy_ch04_normal_comparing_voices", "type": "enemy", "chapter": 4, "rank": "normal", "name_ko": "비교하는 목소리", "name_en": "Comparing Voices", "path": "monsters/chapter_04/enemy_ch04_normal_comparing_voices.png"},
+    {"id": "enemy_ch04_normal_closed_bedroom_door", "type": "enemy", "chapter": 4, "rank": "normal", "name_ko": "닫힌 방문", "name_en": "Closed Bedroom Door", "path": "monsters/chapter_04/enemy_ch04_normal_closed_bedroom_door.png"},
+    {"id": "boss_ch04_stage03_empty_seat_at_table", "type": "boss", "chapter": 4, "stage": 3, "rank": "midchapter", "name_ko": "차별의 기억 (윤슬 자리만 빈 식탁)", "name_en": "Empty Seat at Table", "path": "monsters/chapter_04/boss_ch04_stage03_empty_seat_at_table.png"},
+    {"id": "boss_ch04_stage05_young_yoonseul", "type": "boss", "chapter": 4, "stage": 5, "rank": "chapter_final", "name_ko": "어린 윤슬", "name_en": "Young Yoonseul", "path": "monsters/chapter_04/boss_ch04_stage05_young_yoonseul.png"},
+    {"id": "spirit_fire_mer", "type": "spirit", "element": "fire", "evolution": "lower", "name_ko": "메르", "name_en": "Mer", "path": "spirits/spirit_fire_mer.png"},
+    {"id": "spirit_water_kui", "type": "spirit", "element": "water", "evolution": "lower", "name_ko": "쿠이", "name_en": "Kui", "path": "spirits/spirit_water_kui.png"},
+    {"id": "spirit_wood_maemae", "type": "spirit", "element": "wood", "evolution": "lower", "name_ko": "매매", "name_en": "Maemae", "path": "spirits/spirit_wood_maemae.png"},
+    {"id": "spirit_dark_kai", "type": "spirit", "element": "dark", "evolution": "lower", "name_ko": "카이", "name_en": "Kai", "path": "spirits/spirit_dark_kai.png"},
+    {"id": "spirit_light_luna", "type": "spirit", "element": "light", "evolution": "lower", "name_ko": "루나", "name_en": "Luna", "path": "spirits/spirit_light_luna.png"},
+    {"id": "spirit_chaos_hidden_unnamed", "type": "spirit", "element": "chaos", "evolution": "lower", "rarity": "hidden", "name_ko": "혼돈 정령 (미정)", "name_en": "Unnamed Chaos Spirit", "path": "spirits/spirit_chaos_hidden_unnamed.png"}
+  ]
+}
