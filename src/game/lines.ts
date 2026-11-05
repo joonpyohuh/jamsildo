@@ -31,7 +31,7 @@ export const OPENING: readonly Talk[] = [
   { who: 'sena', text: '야 여기 니 심상세계야. 정신차리고 빨리 싸워.', face: 'angry' },
   { who: 'yunseul', text: '잠깐, 내 손에 있는 이 무기는...?', face: 'troubled' },
   { who: 'sena', text: '나야, 세나. 네 손에 든 무기가 나라고. 단검, 장검, 활, 너클 중에 네가 골라.', face: 'flat' },
-  { who: 'sena', text: '공격은 적을 우클릭하거나 Z를 꾹 눌러. Space는 대시야, 짧게 튀어나가면서 잠깐 안 맞아. 휴대폰은 공격·대시 버튼이야.', face: 'flat' },
+  { who: 'sena', text: '공격은 적을 우클릭하거나 F를 꾹 눌러. Space는 대시야, 짧게 튀어나가면서 잠깐 안 맞아. 휴대폰은 공격·대시 버튼이야.', face: 'flat' },
   { who: 'sena', text: '휴대폰은 왼쪽 조이스틱으로 이동해. 컴퓨터는 방향키나 바닥 우클릭이야. 적을 좌클릭하면 정보가 보여. 움직이면서 공격해.', face: 'smile' },
 ];
 
@@ -45,7 +45,7 @@ export function tutorialLines(key: TutorialKey, touch: boolean): readonly Talk[]
     case 'forms': return [
       say(touch ? '무기는 네가 골라. 위쪽 버튼으로 단검, 장검, 활, 너클을 바꿔.' : '무기는 네가 골라. 1 단검, 2 장검, 3 활, 4 너클.'),
       say('단검은 빠르고, 장검은 넓고, 활은 멀리, 너클은 세게 밀어내. 상황 봐서 바꿔.', 'smile'),
-      say(touch ? '공격 버튼을 누른 채로 조이스틱을 움직여. 탄이 오면 대시 버튼으로 빠져.' : '공격은 Z를 꾹 누르거나 적을 우클릭해. Space는 대시야. 탄이 오면 튀어나가.'),
+      say(touch ? '공격 버튼을 누른 채로 조이스틱을 움직여. 탄이 오면 대시 버튼으로 빠져.' : '공격은 F를 꾹 누르거나 적을 우클릭해. Space는 대시야. 탄이 오면 튀어나가.'),
     ];
     case 'hurt': return [
       say('맞았지? 하트가 네 체력이야. 다 없어지면 쓰러져.', 'angry'),
@@ -99,7 +99,7 @@ export const LINES: Readonly<Record<LineKey, readonly string[]>> = {
   knuckle: ['붙지 마. 밀어낸다.'],
   bossIntro: ['뭐야.. 시계? 넌 알람소리가 그렇게 싫었냐?'],
   goOut: ['뭐 해. 나가.'],
-  firstAttack: ['적을 우클릭하거나, Z나 공격 버튼을 꾹 눌러.'],
+  firstAttack: ['적을 우클릭하거나, F나 공격 버튼을 꾹 눌러.'],
   spiritRoom: ['정령방이야. 그늘을 걷어내면 정령이 나타나.'],
   spiritReady: ['가운데 제단으로 가 봐. 정령이 기다려.'],
   skillHint: ['Q 눌러. 불덩이 나가.', '몰리면 W. 불 둘러.', '도망칠 땐 E.', '아껴둔 R, 지금이야.'],

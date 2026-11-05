@@ -494,8 +494,8 @@
       #artifactList span { font: 11px/1.65 Galmuri11, monospace; color: #cfd2d8; word-break: keep-all; }
       @media (max-height: 500px) { #artifactDialog { width: min(520px, calc(100% - 32px)); padding: 14px 18px; } #artifactStats { margin-top: 8px; padding: 6px 0; } #artifactList { grid-template-columns: 1fr 1fr; gap: 8px 20px; margin-top: 8px; } }
       #artifactList .is-empty { font: 11px/1.65 Galmuri11, monospace; color: var(--dim); word-break: keep-all; }
-      #artifactsToggle { position: fixed; top: calc(var(--st) + 62px); left: calc(var(--sl) + 54px); min-height: 32px; padding: 4px 10px; border: 1px solid var(--line); border-radius: 0; background: #08090bbd; color: var(--pale); font: 11px Galmuri11, monospace; cursor: pointer; }
-      @media (min-height: 560px) { #artifactsToggle { top: calc(var(--st) + 72px); } }
+      #artifactsToggle { position: fixed; top: calc(var(--st) + 90px); left: calc(var(--sl) + 54px); min-height: 32px; padding: 4px 10px; border: 1px solid var(--line); border-radius: 0; background: #08090bbd; color: var(--pale); font: 11px Galmuri11, monospace; cursor: pointer; }
+      @media (min-height: 560px) { #artifactsToggle { top: calc(var(--st) + 100px); } }
       /* 컷인: 세나는 왼쪽(캔버스), 글자는 오른쪽. 세상이 멈춘 동안 다른 HUD는 전부 물러난다. */
       #superCut { position: absolute; left: calc(var(--px) * 262); top: calc(var(--px) * 138); width: calc(var(--px) * 340); }
       #superCut[hidden] { display: none; }
@@ -579,8 +579,8 @@
       html, body { background: #000; }
       #safeProbe { position: fixed; visibility: hidden; pointer-events: none; padding: var(--sa-t) var(--sa-r) var(--sa-b) var(--sa-l); }
       #healthHud { top: calc(var(--st) + 6px); left: calc(var(--sl) + 6px); width: 186px; }
-      #energyHud { top: calc(var(--st) + 32px); left: calc(var(--sl) + 6px); width: 156px; }
-      #settingsToggle { top: calc(var(--st) + 62px); left: calc(var(--sl) + 6px); min-height: 32px; padding: 4px 10px; font-size: 11px; }
+      #energyHud { top: calc(var(--st) + 60px); left: calc(var(--sl) + 6px); width: 156px; }
+      #settingsToggle { top: calc(var(--st) + 90px); left: calc(var(--sl) + 6px); min-height: 32px; padding: 4px 10px; font-size: 11px; }
       #minimap { top: calc(var(--st) + 6px); right: calc(var(--sr) + 6px); width: 96px; height: 76px; padding: 4px 4px 16px; }
       .map-key { bottom: 2px; font-size: 9px; }
       #stageInfo { top: calc(var(--st) + 86px); right: calc(var(--sr) + 6px); }
@@ -600,8 +600,8 @@
       #spiritSummary { left: calc(var(--sl) + 8px); bottom: calc(var(--sb) + 58px); }
       @media (min-height: 560px) {
         #healthHud { width: 248px; }
-        #energyHud { top: calc(var(--st) + 40px); width: 200px; }
-        #settingsToggle { top: calc(var(--st) + 72px); }
+        #energyHud { top: calc(var(--st) + 68px); width: 200px; }
+        #settingsToggle { top: calc(var(--st) + 100px); }
         #minimap { width: 120px; height: 104px; padding: 8px 8px 24px; }
         #stageInfo { top: calc(var(--st) + 114px); }
         html.in-game #accountBar { right: calc(var(--sr) + 132px); }
@@ -636,12 +636,13 @@
       #skillTip.is-locked #skillTipText { color: #e6a99f; }
 
       /* ═══ 무기 선택 ═══ */
-      #weaponBar { position: fixed; z-index: 5; left: 50%; transform: translateX(-50%); bottom: calc(var(--sb) + 6px); display: flex; gap: 4px; }
+      #weaponBar { position: fixed; z-index: 5; left: calc(var(--sl) + 6px); top: calc(var(--st) + 28px); display: flex; gap: 3px; }
+      @media (min-height: 560px) { #weaponBar { top: calc(var(--st) + 36px); } }
       #weaponBar[hidden] { display: none; }
       #weaponBar button { min-width: 48px; min-height: 28px; padding: 2px 6px; border: 1px solid #5c626d; background: #08090bbd; color: var(--dim); font: 10px Galmuri9, monospace; touch-action: none; cursor: pointer; }
       #weaponBar button.is-active { border-color: #dfe6f0; color: #dfe6f0; }
-      html.portrait #weaponBar { left: calc(var(--sa-l) + 8px); transform: none; bottom: auto; top: calc(var(--ct) + 6px); }
-      html.portrait #weaponBar button { min-height: 36px; }
+      html.portrait #weaponBar { left: calc(var(--sl) + 4px); top: calc(var(--st) + 4px); }
+      html.portrait #weaponBar button { min-width: 42px; min-height: 26px; }
       #senaUlt { position: fixed; right: auto; bottom: auto; margin: 0; z-index: 5; width: 44px; height: 44px; padding: 0; border: 2px solid #dfe6f0; border-radius: 50%; background: #08090b8c; color: #dfe6f0; font: 10px Galmuri9, monospace; touch-action: none; }
       #senaUlt[hidden] { display: none; }
       #senaUlt:disabled { opacity: 0.4; }
@@ -750,8 +751,8 @@
       html.portrait #formTag, html.portrait #pickHint { font-size: 10px; line-height: 12px; }
       html.portrait #callBubble { font-size: 11px; padding: 3px 6px 4px; border-width: 1px; box-shadow: none; letter-spacing: 0; }
       html.portrait #callBubble::after { display: none; }
-      html.portrait #hint { top: calc(var(--st) + 4px); }
-      html.portrait[data-boss] #hint { top: calc(var(--st) + 4px); }
+      html.portrait #hint { top: calc(var(--st) + 36px); }
+      html.portrait[data-boss] #hint { top: calc(var(--st) + 36px); }
       html.portrait #hintText { font-size: 11px; }
       html.portrait #center { font-size: 13px; top: calc(var(--st) + var(--px) * 150); }
       html.portrait #superLabel, html.portrait #superLine { font-size: 9px; line-height: 13px; letter-spacing: 0; }

@@ -883,7 +883,7 @@ export class Game {
       this.attackUnlocked = true;
       this.say('start', true);
       this.firstAttackT = 3.2;
-      this.ui.center(window.matchMedia('(pointer: coarse)').matches ? '공격 버튼을 꾹 누르세요' : '적을 우클릭하거나 Z로 공격 · 1~4 무기 · Space 대시');
+      this.ui.center(window.matchMedia('(pointer: coarse)').matches ? '공격 버튼을 꾹 누르세요' : '적을 우클릭하거나 F로 공격 · 1~4 무기 · Space 대시');
     }
     if (this.firstAttackT > 0) {
       this.firstAttackT -= dt;
@@ -1448,7 +1448,7 @@ export class Game {
 
   get gaugeRatio(): number { return this.gauge / GAUGE_MAX; }
 
-  /** F · 세나 궁극기: 컷인 뒤 8초간 사람 모습으로 함께 싸운다 */
+  /** C · 세나 궁극기: 컷인 뒤 8초간 사람 모습으로 함께 싸운다 */
   castUlt(): void {
     const p = this.player;
     if (this.mode !== 'play' || this.cut || this.gauge < GAUGE_MAX || this.ally || this.endingT >= 0) return;

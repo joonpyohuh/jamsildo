@@ -422,7 +422,7 @@ uiEl.addEventListener('pointerdown', (e) => {
 });
 
 /* ── 키보드: 방향키 이동, Space 공격, QWER 정령 스킬, Enter 진행 ── */
-const ATTACK_KEYS = new Set(['Space', 'KeyJ', 'KeyZ']);
+const ATTACK_KEYS = new Set(['Space', 'KeyF']);
 const WEAPON_KEYS: Readonly<Record<string, FormId>> = { Digit1: 'dagger', Digit2: 'sword', Digit3: 'bow', Digit4: 'knuckle' };
 const SKILL_KEYS: Readonly<Record<string, SkillKey>> = { KeyQ: 'q', KeyW: 'w', KeyE: 'e', KeyR: 'r' };
 const ARROW_KEYS: Readonly<Record<string, readonly [number, number]>> = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
@@ -459,7 +459,7 @@ window.addEventListener('keydown', (e) => {
     return;
   }
   if (ARROW_KEYS[e.code]) { e.preventDefault(); heldArrows.add(e.code); return; }
-  if (e.code === 'KeyF' || e.code === 'KeyG') { e.preventDefault(); if (!e.repeat) { sfx.unlock(); if (e.code === 'KeyF') game.castUlt(); else game.castCombo(); } return; }
+  if (e.code === 'KeyC' || e.code === 'KeyG') { e.preventDefault(); if (!e.repeat) { sfx.unlock(); if (e.code === 'KeyC') game.castUlt(); else game.castCombo(); } return; }
   const weapon = WEAPON_KEYS[e.code];
   if (weapon) { e.preventDefault(); game.selectWeapon(weapon); return; }
   const skill = SKILL_KEYS[e.code];
