@@ -103,20 +103,18 @@ const startPlay = page => page.evaluate(async () => {
 
       // 세로로 돌리면 멈춘다 → 가로로 돌아와도 계속하기 전까지 멈춰 있다
       await page.setViewportSize({ width: d.h, height: d.w });
-      await page.waitForFunction(() => document.querySelector('#rotateOverlay').open);
-      assert.equal(await page.locator('#rotateText').textContent(), '화면을 가로로 돌려주세요');
-      assert.equal(await page.locator('#rotateResume').isVisible(), false);
+      await page.waitForFunction(() => document.querySelector('#pauseOverlay').open);
+      assert.equal(await page.locator('#pauseResume').isVisible(), true);
       await page.screenshot({ path: join(output, `${d.name}-portrait.png`) });
       const clock = await page.evaluate(() => window.__jamsildo.clock);
       await page.waitForTimeout(250);
       assert.equal(await page.evaluate(() => window.__jamsildo.clock), clock, `${d.name}: 세로에서 멈춰야 함`);
       await page.setViewportSize({ width: d.w, height: d.h });
-      await page.waitForFunction(() => !document.querySelector('#rotateResume').hidden);
       await page.waitForTimeout(250);
       assert.equal(await page.evaluate(() => window.__jamsildo.clock), clock, `${d.name}: 자동 재개 금지`);
-      await page.locator('#rotateResume').tap();
+      await page.locator('#pauseResume').tap();
       await page.waitForFunction(c => window.__jamsildo.clock > c, clock);
-      assert.equal(await page.evaluate(() => document.querySelector('#rotateOverlay').open), false);
+      assert.equal(await page.evaluate(() => document.querySelector('#pauseOverlay').open), false);
 
       assert.deepEqual(errors, [], `${d.name}: 런타임 에러`);
       console.log(`PASS ${d.name} ${d.w}x${d.h}: 화면 ${Math.round(s.w)}x${Math.round(s.h)} (물리 ${device.toFixed(2)}배${whole ? '' : ', 예외: 꽉 채움'}), 버튼 안전 영역·비겹침, 회전 일시정지`);
@@ -149,7 +147,7 @@ const startPlay = page => page.evaluate(async () => {
       // PC는 창이 세로로 길어도 안내를 띄우지 않는다
       await page.setViewportSize({ width: 700, height: 900 });
       await page.waitForTimeout(100);
-      assert.equal(await page.evaluate(() => document.querySelector('#rotateOverlay').open), false);
+      assert.equal(await page.evaluate(() => document.querySelector('#pauseOverlay').open), false);
       await page.setViewportSize({ width: d.w, height: d.h });
       await page.screenshot({ path: join(output, `${d.name}-play.png`) });
       console.log(`PASS ${d.name} ${d.w}x${d.h}: ${d.scale}배, 터치 버튼 숨김, Q·Tab·우클릭 이동`);

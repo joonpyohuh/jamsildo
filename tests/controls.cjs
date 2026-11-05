@@ -81,7 +81,7 @@ const screen=async(page,x,y)=>{const b=await page.locator('#game').boundingBox()
   assert(chase.x>300,`쫓아감 ${chase.x}`);assert(chase.hp<chase.max,'때림');assert(chase.order,'지시 유지');
   await page.screenshot({path:join(output,'attack.png')});
   await page.keyboard.down('ArrowLeft');await page.waitForTimeout(80);await page.keyboard.up('ArrowLeft');
-  assert.equal(await page.evaluate(()=>window.__jamsildo.attackOrder),null,'방향키로 지시 취소');
+  assert(await page.evaluate(()=>!!window.__jamsildo.attackOrder),'방향키로 피해도 지시 유지');
   await pin(page,520,180);
   await page.mouse.click(...await screen(page,520,176),{button:'right'});await page.waitForTimeout(60);
   await page.mouse.click(...await screen(page,240,120),{button:'right'});await page.waitForTimeout(60);

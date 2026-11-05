@@ -40,6 +40,14 @@ const PLAYER_HP = 100;
 const MAX_HP_CAP = 160;
 const MAX_ENERGY_CAP = 130;
 const INVULN = 1.1;
+/** 대시: 짧게 튀어나가고 0.3초 무적, 재사용 1초 */
+const DASH_TIME = 0.14, DASH_SPEED = 400, DASH_INVULN = 0.3, DASH_COOLDOWN = 1;
+/** 스테이지마다 오르는 공격력 */
+const STAGE_ATTACK = 0.09;
+/** 정령이 중급·상급이 되는 경험치 */
+const TIER2_XP = 5, TIER3_XP = 16;
+/** 방사형 탄이 시작되는 거리(보스 몸 바깥). 이 안쪽은 탄이 지나가지 않아 붙어서 치는 쪽이 안전하다. */
+const RING_GAP = 30;
 /** 바닥 아이템을 Space로 주울 수 있는 거리 */
 const PICKUP_RANGE = 30;
 /** 튀어 오른 아이템이 내려앉는 시간. 그 전에는 줍지 못한다. */
@@ -212,6 +220,10 @@ export class Game {
   /** 세나가 사람 모습으로 윤슬 곁에 서 있는 남은 시간 */
   private senaShowT = 0;
   private comboHinted = false;
+  private ringHinted = false;
+  private dashCd = 0;
+  /** 세로 조작에서 스킬을 끄는 동안 보여주는 조준점 */
+  private aimPreview: { x: number; y: number; cancel: boolean } | null = null;
   /** 이번 판에 얻은 아이템 수 */
   private items: Partial<Record<ItemId, number>> = {};
   private bullets: Bullet[] = [];
@@ -407,6 +419,9 @@ export class Game {
     this.events = [];
     this.clearSupers();
     this.comboHinted = false;
+    this.ringHinted = false;
+    this.dashCd = 0;
+    this.aimPreview = null;
     this.chaosTime = this.reverseTime = this.freezeCooldown = this.fixedForm = 0;
     this.switchCd=this.chaosTick=this.reactionCd=this.playerBurnTick=0;this.aimPoint=null;
     this.embracing = null;
@@ -564,7 +579,7 @@ export class Game {
       effects: {}, burnTick: 0,
       id: this.nextId++, kind,
       x, y, vx: 0, vy: 0, r: s.r,
-      hp: s.hp * 12.5 * (1 + (this.stage.number - 1) * 0.05), maxHp: s.hp * 12.5 * (1 + (this.stage.number - 1) * 0.05), weight: s.weight, warmth: s.warmth,
+      hp: s.hp * 10 * (1 + (this.stage.number - 1) * 0.05), maxHp: s.hp * 10 * (1 + (this.stage.number - 1) * 0.05), weight: s.weight, warmth: s.warmth,
       spawnT, spawnMax: spawnT,
       state: initial[kind], t: rand(0.2, 0.9), a: 0, n: 0,
       flash: 0, squash: 0,
@@ -574,6 +589,29 @@ export class Game {
   }
 
   /* ═══════════════ 입력 ═══════════════ */
+
+  get dashRatio(): number { return this.dashCd / DASH_COOLDOWN; }
+
+  /** 조이스틱 방향으로, 입력이 없으면 바라보는 쪽으로 짧게 튀어나간다 */
+  dash(): void {
+    const p = this.player, stick = this.input.move;
+    if (this.mode !== 'play' || this.cut || this.dashCd > 0 || this.endingT >= 0 || p.effects.stun || p.effects.root) return;
+    const moved = !!stick && (stick.x !== 0 || stick.y !== 0), length = moved ? Math.hypot(stick.x, stick.y) : 1;
+    const x = moved ? stick.x / length * (this.reverseTime > 0 ? -1 : 1) : p.facing, y = moved ? stick.y / length : 0;
+    p.lvx = x * DASH_SPEED; p.lvy = y * DASH_SPEED; p.lungeT = DASH_TIME;
+    p.invuln = Math.max(p.invuln, DASH_INVULN);
+    this.dashCd = DASH_COOLDOWN; this.ghostT = 0;
+    this.sfx.play('swing');
+  }
+
+  /** 세로 조작의 조준: 버튼에서 끈 벡터를 윤슬 기준 위치로 옮긴다. pull 1이면 스킬 사거리 끝. */
+  aimAt(key: SkillKey, dx: number, dy: number, pull: number): { x: number; y: number } {
+    const slot = this.equipped[this.activeSpirit], p = this.player;
+    const range = (slot ? SKILLS[slot.element][key].range : undefined) ?? 96, length = Math.hypot(dx, dy) || 1;
+    return { x: clamp(p.x + dx / length * range * pull, FLOOR.x + 8, FLOOR.x + FLOOR.w - 8), y: clamp(p.y + dy / length * range * pull, FLOOR.y + 8, FLOOR.y + FLOOR.h - 8) };
+  }
+
+  setAimPreview(aim: { x: number; y: number; cancel: boolean } | null): void { this.aimPreview = aim; }
 
   /** 화면 좌표의 적. 그림이 발밑보다 위에 있어 판정 중심을 몸통으로 올린다. */
   private enemyAt(gx: number, gy: number): Enemy | null {
@@ -777,7 +815,7 @@ export class Game {
   }
 
   private updatePlayer(dt: number): void {
-    const p = this.player;
+    const p = this.player, fromX = p.x, fromY = p.y;
     const stick = this.input.move;
     if (stick) {
       p.tx = p.x + stick.x * PLAYER_SPEED * (this.reverseTime > 0 ? -1 : 1);
@@ -786,6 +824,7 @@ export class Game {
     }
     p.invuln = Math.max(0, p.invuln - dt);
     p.hurtT = Math.max(0, p.hurtT - dt);
+    this.dashCd = Math.max(0, this.dashCd - dt);
     p.lostT = Math.max(0, p.lostT - dt);
     if (p.effects.stun || p.effects.root) { p.lungeT = 0; p.vx = p.vy = 0; return; }
 
@@ -822,10 +861,11 @@ export class Game {
     p.vx *= f;
     p.vy *= f;
 
-    this.clampPlayer();
+    this.clampPlayer(fromX, fromY);
   }
 
-  private clampPlayer(): void {
+  /** from: 이번 프레임에 움직이기 전 자리. 벽을 밀었는지, 이미 통로 안에 있었는지를 가른다. */
+  private clampPlayer(fromX: number, fromY: number): void {
     const p = this.player;
     const open = this.room.cleared;
     const d = this.room.doors;
@@ -834,24 +874,26 @@ export class Game {
     const maxX = FLOOR.x + FLOOR.w - p.r;
     const minY = FLOOR.y + p.r;
     const maxY = FLOOR.y + FLOOR.h - p.r;
-    const inGapV = Math.abs(p.y - CY) <= gap;
-    const inGapH = Math.abs(p.x - CX) <= gap;
+    // 벽을 넘은 프레임만 보고 통로로 치면 벽을 미는 순간 문 앞으로 튄다. 움직이기 전에 벽 밖이었을 때만 통로다.
+    const inSideDoor = fromX < minX || fromX > maxX, inFloorDoor = fromY < minY || fromY > maxY;
+    const inGapV = inSideDoor || Math.abs(p.y - CY) <= gap;
+    const inGapH = inFloorDoor || Math.abs(p.x - CX) <= gap;
 
     let lx = minX, hx = maxX, ly = minY, hy = maxY;
     if (open && inGapV && d.w) lx = -24;
     if (open && inGapV && d.e) hx = VIEW_W + 24;
     if (open && inGapH && d.n) ly = -24;
     if (open && inGapH && d.s) hy = VIEW_H + 24;
-    if (p.x < minX || p.x > maxX) { ly = Math.max(ly, CY - gap); hy = Math.min(hy, CY + gap); }
+    if (inSideDoor) { ly = Math.max(ly, CY - gap); hy = Math.min(hy, CY + gap); }
     // 집의 현관은 중앙 통로가 아니라 오른쪽에 있다.
-    if (this.room.kind !== 'home' && (p.y < minY || p.y > maxY)) { lx = Math.max(lx, CX - gap); hx = Math.min(hx, CX + gap); }
+    if (this.room.kind !== 'home' && inFloorDoor) { lx = Math.max(lx, CX - gap); hx = Math.min(hx, CX + gap); }
 
     if (this.room.kind === 'home') {
       // 현관 문 폭 안에서만 아래로 나갈 수 있다
       const dr = HOME.door;
-      const inDoor = p.x > dr.x + p.r && p.x < dr.x + dr.w - p.r;
+      const inDoor = fromY > maxY || (p.x > dr.x + p.r && p.x < dr.x + dr.w - p.r);
       if (inDoor) hy = VIEW_H + 24;
-      if (p.y > maxY) { lx = Math.max(lx, dr.x + p.r); hx = Math.min(hx, dr.x + dr.w - p.r); }
+      if (fromY > maxY) { lx = Math.max(lx, dr.x + p.r); hx = Math.min(hx, dr.x + dr.w - p.r); }
     }
 
     p.x = clamp(p.x, lx, hx);
@@ -906,8 +948,8 @@ export class Game {
     if (this.room.cleared || this.enemies.length === 0) return;
     if (!this.enemies.every((e) => e.faced)) return;
     this.room.cleared = true;
-    this.player.hp = Math.min(this.player.maxHp,this.player.hp+3);
-    this.player.energy = Math.min(this.player.maxEnergy,this.player.energy+4);
+    this.player.hp = Math.min(this.player.maxHp,this.player.hp+8);
+    this.player.energy = Math.min(this.player.maxEnergy,this.player.energy+8);
     if (this.room.kind === 'hard' && !this.room.rewarded) {
       this.placeRoomItem();
       this.fx.ring(CX, CY, 34, 0.5);
@@ -1023,7 +1065,7 @@ export class Game {
     this.player.maxEnergy = Math.min(MAX_ENERGY_CAP, this.player.maxEnergy + 4);
     this.player.energy = this.player.maxEnergy;
     this.player.hp = Math.min(this.player.maxHp, this.player.hp + (this.stage.within === 1 ? 35 : 15));
-    this.runAttack += 0.065;
+    this.runAttack += STAGE_ATTACK;
     this.player.effects = {};
     this.mode = 'play'; this.ui.showScreen(null); this.ui.hideTalk();
     this.enterRoom(this.stage.start, null);
@@ -1073,7 +1115,7 @@ export class Game {
       for (const element of Array.isArray(data.acquired) ? data.acquired : []) if (Object.hasOwn(SPIRIT_NAMES,element)) this.acquired.add(element);
       this.hasSpirit = this.equipped.length > 0; this.attackUnlocked = true; this.openingSeen = true;
       if(this.hasSpirit)this.spirit={x:this.player.x-12,y:this.player.y-26,state:'following',t:0};
-      this.runAttack = clamp(Number(data.attack)||1+(data.stage-1)*0.065,1,10);
+      this.runAttack = clamp(Number(data.attack)||1+(data.stage-1)*STAGE_ATTACK,1,10);
       this.player.energy = Number.isFinite(data.energy) ? clamp(data.energy, 0, this.player.maxEnergy) : this.player.maxEnergy;
       this.player.armor = clamp(Math.floor(Number(data.armor) || 0), 0, 3);
       this.activeSpirit = clamp(Math.floor(Number(data.active) || 0), 0, Math.max(0, this.equipped.length - 1));
@@ -1094,7 +1136,7 @@ export class Game {
     if (!Number.isInteger(number) || number < 1 || number > 20) throw new RangeError('stage must be 1..20');
     this.startRun(); this.stage = generateStage(number); this.visitedRooms.clear(); this.roomCache.clear();
     this.player.maxEnergy = Math.min(100, 30 + (number - 1) * 4); this.player.energy = this.player.maxEnergy;
-    this.runAttack = 1 + (number - 1) * 0.065;
+    this.runAttack = 1 + (number - 1) * STAGE_ATTACK;
     this.enterRoom(this.stage.start, null); this.attackUnlocked = true;
   }
 
@@ -1219,7 +1261,7 @@ export class Game {
     if (!this.cheats.energy) p.energy -= slot.element === 'chaos' && key === 'r' ? p.energy : spec.cost;
     slot.cooldowns[key] = spec.cd;
     slot.uses[spec.type] = (slot.uses[spec.type] ?? 0) + 1; slot.xp += 1;
-    const tier = slot.xp >= 24 ? 3 : slot.xp >= 8 ? 2 : 1;
+    const tier = slot.xp >= TIER3_XP ? 3 : slot.xp >= TIER2_XP ? 2 : 1;
     if (tier > slot.tier) {
       slot.tier = tier; this.ui.center(`${SPIRIT_NAMES[slot.element]} · ${tier===2?'중급 · R 해금':'상급 진화'}`);
       this.fx.burst(p.x-p.facing*13,p.y-26,0,28,[ELEMENT[slot.element].glow,COLOR.white],{spread:Math.PI,speed:130,life:0.7,glow:true});
@@ -1866,6 +1908,12 @@ export class Game {
       }
       const warning=zone.age<zone.warning;
       const color=zone.owner==='enemy'?'#e06467':ELEMENT[zone.element].glow;
+      if(zone.shape==='ring'&&zone.damage===0&&zone.owner==='enemy'){
+        // 방사 탄 예고: 원이 또렷할수록 안전한 안쪽이 읽힌다
+        const steps=Math.round(zone.r*7);
+        for(let i=0;i<steps;i++){const a=i/steps*TAU;plot(ctx,zone.x+Math.cos(a)*zone.r,zone.y+Math.sin(a)*zone.r,warning?'#ff8a8c':color);}
+        continue;
+      }
       ctx.save();ctx.fillStyle=color;ctx.strokeStyle=color;ctx.lineWidth=1;
       ctx.globalAlpha=warning?0.16+Math.sin(zone.age*14)*0.04:0.22;
       ctx.beginPath();
@@ -1920,16 +1968,17 @@ export class Game {
     return !!t && dist(p.x, p.y, t.x, t.y) - t.r <= SENSE.near;
   }
 
-  /** 방향키·조이스틱을 쓰거나 대상이 사라지면 지시를 거둔다 */
+  /** 대상이 사라지면 지시를 거둔다. 방향키로 피하는 동안은 쫓아가지 않지만 닿으면 계속 친다. */
   private updateAttackOrder(): void {
     const t = this.attackOrder;
     if (!t) return;
     const p = this.player, stick = this.input.move;
-    if (t.faced || (t.stealth ?? 0) > 0 || !this.enemies.includes(t) || (stick && (stick.x !== 0 || stick.y !== 0))) {
+    if (t.faced || (t.stealth ?? 0) > 0 || !this.enemies.includes(t)) {
       this.attackOrder = null;
       if (!stick) p.moving = false;
       return;
     }
+    if (stick) return;
     p.moving = !this.orderInReach();
     if (p.moving) { p.tx = t.x; p.ty = t.y; }
   }
@@ -1959,6 +2008,10 @@ export class Game {
     // 지시한 적이 있으면 그 적만 본다 (Space만 누를 때는 세나가 알아서 고른다)
     const choice = chooseForm(p.x, p.y, this.attackOrder ? [this.attackOrder] : targets, p.form);
     if(this.fixedForm>0)choice.form='dagger';
+    // 뒤로 빠지는 중: 몸을 끌어당기지 않으므로, 근접이 안 닿으면 활로 견제한다
+    const foe=choice.target;
+    const retreating=!!foe&&p.moving&&(p.tx-p.x)*(foe.x-p.x)+(p.ty-p.y)*(foe.y-p.y)<0;
+    if(retreating&&foe&&this.fixedForm<=0&&choice.form==='dagger'&&dist(p.x,p.y,foe.x,foe.y)-foe.r>FORMS.dagger.range)choice.form='bow';
     if(p.effects.blind&&choice.form==='bow'){p.cd=0.3;return;}
     if (choice.form !== p.form) {
       this.fx.burst(p.x, p.y - 10, 0, 14, [COLOR.sena, COLOR.senaShade], { speed: 80, life: 0.28, drag: 9, glow: true });
@@ -1996,7 +2049,8 @@ export class Game {
 
     // 세나가 몸을 끌어당긴다: 목표 쪽으로 짧게 돌진
     const reach = t ? dist(p.x, p.y, t.x, t.y) - t.r - p.r - 5 : spec.lunge * 0.3;
-    const step = clamp(reach, 0, spec.lunge);
+    // 뒤로 빠지는 중이면 몸을 끌어당기지 않는다: 피하려는데 다시 적에게 붙으면 조작을 뺏기는 느낌이 난다
+    const step = retreating ? 0 : clamp(reach, 0, spec.lunge);
     const lungeDur = 0.065;
     p.lungeT = step > 0.5 ? lungeDur : 0;
     p.lvx = (Math.cos(aim) * step) / lungeDur;
@@ -2100,7 +2154,7 @@ export class Game {
     e.fadeT = 0;
     e.vx *= 0.3;
     e.vy *= 0.3;
-    if(reward)for(const slot of this.equipped){slot.xp+=0.35;if(slot.xp>=24)slot.tier=3;else if(slot.xp>=8)slot.tier=Math.max(2,slot.tier);}
+    if(reward)for(const slot of this.equipped){slot.xp+=0.6;if(slot.xp>=TIER3_XP)slot.tier=3;else if(slot.xp>=TIER2_XP)slot.tier=Math.max(2,slot.tier);}
     this.room.marks.push({ x: Math.round(e.x), y: Math.round(e.y + e.r * 0.6), w: Math.max(5, Math.round(e.r * 1.4)) });
     // 옅은 사본이 몸에서 빠져나와 떠오른다. 사라진 게 아니라 놓아준 것.
     this.px.soul(e.x, e.y + e.r * 0.6, this.bodyOf(e.kind), e.kind === 'alarm' ? 46 : 28);
@@ -2726,12 +2780,22 @@ export class Game {
     // 2페이즈: 예고·연타 간격은 짧게, 탄은 빠르게
     const haste=this.bossHaste(enemy);
     const later=(time:number,run:()=>void)=>this.after(time/haste,()=>{if(!enemy.faced)run();});
-    const shoot=(x:number,y:number,a:number,speed:number,style:'tear'|'note'|'ember',damage=15,skill=false,element?:Element)=>this.fireEnemy(x,y,a,speed*(haste>1?1.3:1),style,damage,skill,element);
+    const gap=enemy.r+RING_GAP;
+    // 보스 몸에서 나가는 탄은 몸 바깥 원에서 시작한다. 붙어서 때리는 사람이 까닭 없이 맞지 않게.
+    const shoot=(x:number,y:number,a:number,speed:number,style:'tear'|'note'|'ember',damage=15,skill=false,element?:Element)=>{
+      const fromBody=Math.hypot(x-enemy.x,y-enemy.y)<24;
+      this.fireEnemy(fromBody?x+Math.cos(a)*gap:x,fromBody?y+Math.sin(a)*gap:y,a,speed*(haste>1?1.3:1),style,damage,skill,element);
+    };
     b.pattern=pattern;enemy.state='bossAct';enemy.t=2.8;
     this.monsterVfx(enemy,{life:0.8,scale:enemy.spriteId?.startsWith('boss')?1:1.5,alpha:0.85},-14);
     const angle=angleTo(enemy.x,enemy.y,p.x,p.y);
     const circle=(x:number,y:number,r:number,damage:number,warning=profile.warning,status?:StatusId,life=0.25)=>this.addZone({x,y,r,damage:damage>0?(pattern==='mimic'?damage:profile.damage):0,warning,life,status,source:enemy.id});
-    const warn=()=>circle(enemy.x,enemy.y,enemy.r+9,0,0.8);
+    // 예고: 탄이 시작될 원을 그린다. 안쪽은 안전하다는 걸 처음 한 번은 세나가 말해준다.
+    const warn=()=>{
+      this.addZone({shape:'ring',x:enemy.x,y:enemy.y-12,r:gap,width:2,warning:0.8,life:0.15,damage:0,source:enemy.id});
+      enemy.flash=0.2;
+      if(!this.ringHinted){this.ringHinted=true;this.ui.say('원이 뜨면 안쪽에 붙어. 탄은 거기서 시작돼.','flat');}
+    };
     const fan=(count:number,spread:number,damage=profile.damage,delay=profile.warning)=>{
       this.addZone({shape:'cone',x:enemy.x,y:enemy.y,r:210,angle,warning:delay,life:0.15,source:enemy.id});
       later(delay,()=>{if(enemy.faced||enemy.effects.blind)return;for(let i=0;i<count;i++)shoot(enemy.x,enemy.y-15,angle+(i-(count-1)/2)*spread,115,'note',damage,true);});
@@ -2754,7 +2818,7 @@ export class Game {
           const offset=angle+wave*Math.PI/count+Math.random()*0.2;
           for(let i=0;i<count;i++){
             const a=offset+i/count*TAU;
-            this.bullets.push({x:enemy.x+Math.cos(a)*enemy.r,y:enemy.y-10+Math.sin(a)*enemy.r*0.6,vx:Math.cos(a)*v,vy:Math.sin(a)*v,r:4,life:3.2,damage:profile.damage,owner:'enemy',style:'slash',skill:true});
+            this.bullets.push({x:enemy.x+Math.cos(a)*gap,y:enemy.y-10+Math.sin(a)*gap,vx:Math.cos(a)*v,vy:Math.sin(a)*v,r:4,life:3.2,damage:profile.damage,owner:'enemy',style:'slash',skill:true});
           }
           this.px.swordSlash(enemy.x,enemy.y+enemy.r*0.6-12,angle+wave*Math.PI,enemy.r+18);
           this.fx.shake(2.5);this.sfx.play('swing');
@@ -3487,6 +3551,12 @@ export class Game {
     };
     if (this.inspected && this.inspected !== this.attackOrder) ring(this.inspected, COLOR.dim);
     if (this.attackOrder) ring(this.attackOrder, '#e0a458');
+    const aim = this.aimPreview;
+    if (aim) {
+      const p = this.player, color = aim.cancel ? COLOR.dim : '#e0a458', steps = Math.max(1, Math.floor(dist(p.x, p.y, aim.x, aim.y) / 5));
+      for (let i = 1; i <= steps; i += 1) plot(this.ctx, p.x + (aim.x - p.x) * i / steps, p.y + (aim.y - p.y) * i / steps, color);
+      for (let i = 0; i < 20; i += 1) plot(this.ctx, aim.x + Math.cos(i / 20 * TAU) * 9, aim.y + Math.sin(i / 20 * TAU) * 5, color);
+    }
   }
 
   private drawFacingRing(): void {

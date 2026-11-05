@@ -47,7 +47,7 @@
   "tantrum":{"warning":0.8,"damage":20,"count":3},
   "emotion":{"warning":0.8,"damage":15,"count":18},
   "notice_me":{"warning":1,"damage":15,"duration":4},
-  "slash_ring":{"warning":0.7,"damage":15,"count":12},
+  "slash_ring":{"warning":0.9,"damage":15,"count":12},
   "dark_orb":{"warning":0.6,"damage":18,"count":3},
   "hazard":{"warning":0.9,"damage":8}
 }

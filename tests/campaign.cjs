@@ -110,7 +110,7 @@ const fs=require('node:fs/promises');
    for(const element of ['water','wood','fire','dark','light','chaos'])for(const key of ['q','w','e','r']){g.events=[];g.zones=[];g.bullets=[];g.copySpiritSkill(young,element,key);for(let i=0;i<25;i++)g.updateEffects(0.05);}
    g.saveEnabled=true; // 저장 경로 검사는 로그인 상태를 가정한다 (게스트는 저장하지 않는다)
    g.debugStage(1);g.runAttack=1.3;g.player.maxEnergy=33;g.mode='clear';g.screenT=1;g.onScreenTap();
-   if(Math.abs(g.runAttack-1.365)>0.001||g.player.maxEnergy!==37)throw Error('item growth lost between stages');
+   if(Math.abs(g.runAttack-1.39)>0.001||g.player.maxEnergy!==37)throw Error('item growth lost between stages');
    const checkpoint=JSON.parse(localStorage.getItem('jamsildo.campaign'));g.resumeRun();
    if(g.stage.number!==checkpoint.stage||g.player.maxEnergy!==checkpoint.maxEnergy)throw Error('checkpoint restore');
    g.startRun();if(g.player.maxEnergy<checkpoint.maxEnergy)throw Error('permanent energy growth lost');

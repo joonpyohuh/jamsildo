@@ -16,6 +16,8 @@
     "test:items": "node tests/items.cjs",
     "test:supers": "node tests/supers.cjs",
     "test:guests": "node tests/guests.cjs",
+    "test:combat": "node tests/combat.cjs",
+    "test:portrait": "node tests/portrait.cjs",
     "assets:build": "node scripts/build-assets.cjs",
     "assets:vfx": "node scripts/build-vfx-pack.cjs"
   },

@@ -9,25 +9,25 @@
     "q": {"name":"나무벽","type":"defense","cost":10,"cd":10,"range":64,"duration":6},
     "w": {"name":"단단해지기","type":"defense","cost":10,"cd":12},
     "e": {"name":"가시 덩굴","type":"attack","cost":15,"cd":8,"range":128,"damage":20,"status":"root","duration":1},
-    "r": {"name":"숲의 성역","type":"heal","cost":32,"cd":60,"range":160,"damage":18,"duration":8}
+    "r": {"name":"숲의 성역","type":"heal","cost":30,"cd":60,"range":160,"damage":18,"duration":8}
   },
   "fire": {
     "q": {"name":"불씨 탄","type":"projectile","cost":8,"cd":4,"range":256,"damage":20,"status":"burn","duration":3},
     "w": {"name":"점화 돌진","type":"attack","cost":12,"cd":10,"range":96,"duration":0.3},
     "e": {"name":"불꽃 갑옷","type":"defense","cost":15,"cd":18,"duration":5},
-    "r": {"name":"초대형 불대포","type":"attack","cost":36,"cd":65,"range":190,"damage":140,"duration":1}
+    "r": {"name":"초대형 불대포","type":"attack","cost":30,"cd":65,"range":190,"damage":140,"duration":1}
   },
   "dark": {
     "q": {"name":"그림자 단도","type":"projectile","cost":8,"cd":5,"range":224,"damage":15,"status":"mark","duration":3},
     "w": {"name":"그림자 이동","type":"defense","cost":12,"cd":10,"range":192,"duration":1},
     "e": {"name":"어둠 장막","type":"control","cost":15,"cd":16,"range":96,"duration":4},
-    "r": {"name":"리퍼의 낫","type":"attack","cost":36,"cd":70,"range":480,"damage":120}
+    "r": {"name":"리퍼의 낫","type":"attack","cost":30,"cd":70,"range":480,"damage":120}
   },
   "light": {
     "q": {"name":"빛 화살","type":"projectile","cost":8,"cd":5,"range":256,"damage":20},
     "w": {"name":"축복","type":"heal","cost":18,"cd":25,"heal":0.15,"duration":5},
     "e": {"name":"섬광","type":"control","cost":15,"cd":18,"range":96,"duration":1},
-    "r": {"name":"빛의 검","type":"defense","cost":36,"cd":70,"range":130,"damage":45,"duration":6}
+    "r": {"name":"빛의 검","type":"defense","cost":30,"cd":70,"range":130,"damage":45,"duration":6}
   },
   "chaos": {
     "q": {"name":"뒤섞인 탄","type":"projectile","cost":10,"cd":4,"range":256},

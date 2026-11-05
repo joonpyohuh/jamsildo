@@ -123,7 +123,7 @@ const cutOver=page=>page.waitForFunction(()=>!window.__jamsildo.cut,{timeout:400
   assert.match(await page.locator('#superLabel').textContent(),/메르 × 쿠이/);
   await page.waitForTimeout(300);await page.screenshot({path:join(output,'cut-steam.png')});
   const spent=await page.evaluate(()=>{const g=window.__jamsildo;return{e:g.player.energy,r:g.equipped.map(s=>s.cooldowns.r)};});
-  assert(spent.e<=60);assert(spent.r[0]>0&&spent.r[1]>0,'둘의 R이 함께 돈다');
+  assert(spent.e<=70);assert(spent.r[0]>0&&spent.r[1]>0,'둘의 R이 함께 돈다');
   await cutOver(page);await page.waitForTimeout(800);await page.screenshot({path:join(output,'combo-steam.png')});
   await page.waitForTimeout(600);
   const steam=await damaged(page);assert(steam[0]>0);assert.equal(steam[1],0,'앞줄 밖은 안 맞음');

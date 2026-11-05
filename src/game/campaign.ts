@@ -54,8 +54,8 @@ export const SKILL_DESC: Record<Element, Record<SkillKey, string>> = {
 /** 합동 궁극기: 짝이 되는 두 정령이 함께 있고, 둘 다 중급 이상에 R이 준비됐을 때 쓴다 */
 export interface ComboSpec { name: string; pair: readonly [Element, Element]; cost: number; damage: number; text: string }
 export const COMBOS: readonly ComboSpec[] = [
-  { name: '증기 나선', pair: ['fire', 'water'], cost: 40, damage: 220, text: '메르와 쿠이가 불과 물을 꼬아 쏜다. 앞의 그늘을 세 번 꿰뚫고 불태운다.' },
-  { name: '일식 베기', pair: ['light', 'dark'], cost: 40, damage: 240, text: '루나와 카이가 일식을 만들어 벤다. 주변 그늘을 기절시키고 눈을 멀게 하며, 화면의 탄을 모두 지운다.' },
+  { name: '증기 나선', pair: ['fire', 'water'], cost: 30, damage: 220, text: '메르와 쿠이가 불과 물을 꼬아 쏜다. 앞의 그늘을 세 번 꿰뚫고 불태운다.' },
+  { name: '일식 베기', pair: ['light', 'dark'], cost: 30, damage: 240, text: '루나와 카이가 일식을 만들어 벤다. 주변 그늘을 기절시키고 눈을 멀게 하며, 화면의 탄을 모두 지운다.' },
 ];
 export type ItemId = 'meal' | 'thermos' | 'shoes' | 'crystal' | 'heart';
 export interface ItemSpec { name: string; effect: string; /** 있으면 상점 품목 */ cost?: number; /** 한 판에 가질 수 있는 수 */ limit?: number }

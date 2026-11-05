@@ -37,6 +37,12 @@ const startButton=must<HTMLButtonElement>('#startGame');
 const continueButton=must<HTMLButtonElement>('#continueGame');
 const guestButton=must<HTMLButtonElement>('#startGuest');
 const comboButton=must<HTMLButtonElement>('#comboSkill');
+const dashBtn=must<HTMLButtonElement>('#dash');
+const touchZone=must<HTMLDivElement>('#touchZone');
+const topBar=must<HTMLElement>('#topBar');
+const statusBar=must<HTMLElement>('#statusBar');
+const pauseToggle=must<HTMLButtonElement>('#pauseToggle');
+const layoutEdit=must<HTMLDivElement>('#layoutEdit');
 const itemDialog=must<HTMLDialogElement>('#itemDialog');
 const itemsToggle=must<HTMLButtonElement>('#itemsToggle');
 
@@ -103,19 +109,19 @@ itemDialog.addEventListener('close', () => canvas.focus({ preventScroll: true })
 continueButton.addEventListener('click',()=>{if(assetsReady){sfx.unlock();game.resumeRun();}});
 startButton.addEventListener('click', () => {
   if(!assetsReady)return;
-  void enterLandscape();
+  void enterFullscreen();
   if(!accounts.confirmStart())return;
   sfx.unlock();
   game.onScreenTap();
 });
 guestButton.addEventListener('click',()=>{
   if(!assetsReady)return;
-  void enterLandscape();
+  void enterFullscreen();
   sfx.unlock();accounts.playAsGuest();
   game.onScreenTap();
 });
-must<HTMLButtonElement>('#startRegister').addEventListener('click',()=>{if(assetsReady){void enterLandscape();accounts.openAuth('register');}});
-must<HTMLButtonElement>('#startLogin').addEventListener('click',()=>{if(assetsReady){void enterLandscape();accounts.openAuth('login');}});
+must<HTMLButtonElement>('#startRegister').addEventListener('click',()=>{if(assetsReady){void enterFullscreen();accounts.openAuth('register');}});
+must<HTMLButtonElement>('#startLogin').addEventListener('click',()=>{if(assetsReady){void enterFullscreen();accounts.openAuth('login');}});
 volume.addEventListener('change', () => {
   sfx.unlock();
   sfx.play('pickup');
@@ -154,12 +160,21 @@ function pickScale(fitScale: number): number {
   if (whole <= 0) return fitScale;
   return touchSeen && whole < fitScale * 0.8 ? fitScale : whole;
 }
+/* 세로 레이아웃의 고정 높이. 게임 화면은 16:9 그대로 위에 두고 아래를 조작 영역으로 쓴다. */
+const TOP_BAR = 44, BOSS_ROW = 30, STATUS_ROW = 40, SIDE_GAP = 8, BOTTOM_GAP = 16, MIN_CONTROLS = 250;
+const portraitQuery = window.matchMedia('(orientation: portrait)');
+/** PC는 창이 세로로 길어도 기존 화면을 쓴다 */
+const isPortrait = (): boolean => touchSeen && portraitQuery.matches;
+
 function fit(): void {
-  const W = window.innerWidth, H = window.innerHeight, safe = safeArea(), dpr = window.devicePixelRatio || 1;
-  const areaW = W - safe.l - safe.r, areaH = H - safe.t - safe.b;
-  const scale = pickScale(Math.min(areaW / VIEW_W, areaH / VIEW_H));
+  const W = window.innerWidth, H = window.innerHeight, safe = safeArea(), dpr = window.devicePixelRatio || 1, portrait = isPortrait();
+  document.documentElement.classList.toggle('portrait', portrait);
+  const areaW = W - safe.l - safe.r - (portrait ? SIDE_GAP * 2 : 0), areaH = H - safe.t - safe.b;
+  const portraitTop = safe.t + TOP_BAR + BOSS_ROW;
+  // 세로는 폭을 꽉 채운다. 폴드처럼 넓은 화면에서만 조작 영역을 남기려고 줄인다.
+  const scale = portrait ? Math.min(areaW / VIEW_W, (H - portraitTop - STATUS_ROW - safe.b - BOTTOM_GAP - MIN_CONTROLS) / VIEW_H) : pickScale(Math.min(areaW / VIEW_W, areaH / VIEW_H));
   const width = VIEW_W * scale, height = VIEW_H * scale;
-  const left = Math.round((safe.l + (areaW - width) / 2) * dpr) / dpr, top = Math.round((safe.t + (areaH - height) / 2) * dpr) / dpr;
+  const left = Math.round((safe.l + (portrait ? SIDE_GAP : 0) + (areaW - width) / 2) * dpr) / dpr, top = Math.round((portrait ? portraitTop : safe.t + (areaH - height) / 2) * dpr) / dpr;
   stageEl.style.width = `${width}px`;
   stageEl.style.height = `${height}px`;
   stageEl.style.left = `${left}px`;
@@ -170,6 +185,7 @@ function fit(): void {
   root.setProperty('--sr', `${W - left - width}px`);
   root.setProperty('--sb', `${H - top - height}px`);
   root.setProperty('--sw', `${width}px`);
+  root.setProperty('--ct', `${top + height + STATUS_ROW}px`);
   ui.setScale(scale);
   layoutControls(W, H, safe, { l: left, t: top, r: left + width, b: top + height });
   updateOrientation();
@@ -178,17 +194,53 @@ function fit(): void {
 /* ── 터치 버튼 배치 ── */
 const SKILL_ANGLES: Readonly<Record<SkillKey, number>> = { q: 90, w: 125, e: 160, r: 195 };
 const SKILL_RADIUS = 100, SKILL_SIZE = 56, ATTACK_SIZE = 80, SWAP_SIZE = 44, STICK_SIZE = 112, COMBO_ANGLE = 165;
+/* 버튼 배치 편집: 기본 자리에서 옮긴 거리만 저장한다. 가로·세로는 손 위치가 달라 따로 둔다. */
+type Layout = Record<string, readonly [number, number]>;
+function readLayout(mode: string): Layout {
+  try {
+    const value: unknown = JSON.parse(localStorage.getItem(`jamsildo.layout.${mode}`) ?? '{}');
+    return value && typeof value === 'object' ? value as Layout : {};
+  } catch { return {}; }
+}
+function saveLayout(mode: string, layout: Layout): void {
+  try { localStorage.setItem(`jamsildo.layout.${mode}`, JSON.stringify(layout)); } catch { /* 저장이 막혀도 이번 플레이에는 적용된다. */ }
+}
+const layouts: Record<'portrait' | 'landscape', Layout> = { portrait: readLayout('portrait'), landscape: readLayout('landscape') };
+const layoutMode = (): 'portrait' | 'landscape' => isPortrait() ? 'portrait' : 'landscape';
+const layoutKey = (el: HTMLElement): string => el.dataset.skill ?? el.id;
+
+/** 세로 부채꼴: 공격 버튼 왼쪽 위. 지름 52 · 거리 96이면 34도 간격이면 서로 닿지 않는다. */
+const PORTRAIT_SKILLS: Readonly<Record<SkillKey, number>> = { q: 84, w: 118, e: 152, r: 186 };
+function layoutPortrait(W: number, H: number, safe: Box, controlTop: number): void {
+  const offsets = layouts.portrait, bottom = H - safe.b - BOTTOM_GAP, right = W - safe.r - 12;
+  const place = (el: HTMLElement, cx: number, cy: number, size: number): void => {
+    const half = size / 2, move = offsets[layoutKey(el)];
+    const x = Math.min(right - half, Math.max(safe.l + 8 + half, cx + (Number(move?.[0]) || 0)));
+    const y = Math.min(bottom - half, Math.max(controlTop + half, cy + (Number(move?.[1]) || 0)));
+    el.style.left = `${Math.round(x - half)}px`;
+    el.style.top = `${Math.round(y - half)}px`;
+    el.classList.remove('is-over');
+  };
+  const ax = right - 38, ay = bottom - 38, polar = (angle: number, distance: number): [number, number] => [ax + Math.cos(angle * Math.PI / 180) * distance, ay - Math.sin(angle * Math.PI / 180) * distance];
+  place(attackBtn, ax, ay, 76);
+  for (const button of skillPad.querySelectorAll<HTMLButtonElement>('button[data-skill]')) place(button, ...polar(PORTRAIT_SKILLS[button.dataset.skill as SkillKey], 96), 52);
+  place(swapBtn, ...polar(112, 150), 40);
+  place(comboButton, ...polar(148, 158), 52);
+  place(dashBtn, ax - 156, ay + 10, 56);
+}
+
 function layoutControls(W: number, H: number, safe: Box, stage: Box): void {
   const skillButtons = skillPad.querySelectorAll<HTMLButtonElement>('button[data-skill]');
+  if (isPortrait()) { layoutPortrait(W, H, safe, stage.b + STATUS_ROW + 6); return; }
   if (!touchSeen) {
     for (const el of [attackBtn, joystick, swapBtn, comboButton, ...skillButtons]) { el.style.left = el.style.top = ''; el.classList.remove('is-over'); }
     return;
   }
   // 버튼이 화면 밖으로 나가거나 노치·홈바에 닿지 않게 안쪽으로 민다
   const place = (el: HTMLElement, cx: number, cy: number, size: number): void => {
-    const half = size / 2, pad = 6;
-    const x = Math.min(W - safe.r - half - pad, Math.max(safe.l + half + pad, cx));
-    const y = Math.min(H - safe.b - half - pad, Math.max(safe.t + half + pad, cy));
+    const half = size / 2, pad = 6, move = layouts.landscape[layoutKey(el)];
+    const x = Math.min(W - safe.r - half - pad, Math.max(safe.l + half + pad, cx + (Number(move?.[0]) || 0)));
+    const y = Math.min(H - safe.b - half - pad, Math.max(safe.t + half + pad, cy + (Number(move?.[1]) || 0)));
     el.style.left = `${Math.round(x - half)}px`;
     el.style.top = `${Math.round(y - half)}px`;
     // 게임 화면과 겹치면 반투명
@@ -213,57 +265,83 @@ function layoutControls(W: number, H: number, safe: Box, stage: Box): void {
   place(joystick, jx, H - Math.max(H * 0.18, safe.b + 8) - STICK_SIZE / 2, STICK_SIZE);
 }
 
-/* ── 모바일 가로: 전체화면 → 가로 고정. 안 되는 브라우저는 조용히 넘어간다. ── */
-async function enterLandscape(): Promise<void> {
+/* ── 모바일: 전체화면만 시도한다. 방향은 기기를 따른다. 안 되는 브라우저는 조용히 넘어간다. ── */
+async function enterFullscreen(): Promise<void> {
   if (!touchSeen) return;
   try {
     if (!document.fullscreenElement) await document.documentElement.requestFullscreen();
-    await (screen.orientation as ScreenOrientation & { lock?: (o: string) => Promise<void> }).lock?.('landscape');
-  } catch { /* 아이폰 사파리 등은 지원하지 않는다. 세로 안내로 대신한다. */ }
+  } catch { /* 아이폰 사파리 등은 지원하지 않는다. 브라우저 화면 그대로 플레이한다. */ }
 }
 
-/* ── 세로면 일시정지 + 안내. 가로로 돌아와도 '계속하기'를 눌러야 이어진다. ── */
-const rotateOverlay = must<HTMLDialogElement>('#rotateOverlay');
-const rotateResume = must<HTMLButtonElement>('#rotateResume');
-const rotateText = must<HTMLElement>('#rotateText');
+/* ── 일시정지: 방향이 바뀌면 자동으로, 세로에서는 버튼으로. '계속하기'를 눌러야 이어진다. ── */
+const pauseOverlay = must<HTMLDialogElement>('#pauseOverlay');
+const IN_PROGRESS = ['opening', 'talk', 'play', 'slide', 'embrace'];
+function openPause(): void {
+  if (!IN_PROGRESS.includes(game.mode) || accounts.paused) return;
+  resetInput();
+  must<HTMLButtonElement>('#pauseItems').hidden = game.mode !== 'play';
+  pauseOverlay.showModal();
+}
+let shownPortrait = isPortrait();
 function updateOrientation(): void {
-  const portrait = touchSeen && window.innerHeight > window.innerWidth;
-  if (portrait) {
-    rotateOverlay.classList.remove('is-landscape');
-    rotateText.textContent = '화면을 가로로 돌려주세요';
-    rotateResume.hidden = true;
-    if (!rotateOverlay.open) rotateOverlay.showModal();
-    return;
-  }
-  if (!rotateOverlay.open) return;
-  // 진행 중인 게임이 없으면 눌러서 이어갈 것도 없다
-  if (!['opening', 'talk', 'play', 'slide', 'embrace'].includes(game.mode)) { rotateOverlay.close(); return; }
-  rotateOverlay.classList.add('is-landscape');
-  rotateText.textContent = '일시정지';
-  rotateResume.hidden = false;
+  const portrait = isPortrait();
+  if (portrait === shownPortrait) return;
+  shownPortrait = portrait;
+  openPause();
 }
-rotateOverlay.addEventListener('cancel', e => e.preventDefault());
-rotateResume.addEventListener('click', () => {
-  rotateOverlay.close();
+pauseOverlay.addEventListener('cancel', e => e.preventDefault());
+pauseOverlay.addEventListener('close', () => canvas.focus({ preventScroll: true }));
+must<HTMLButtonElement>('#pauseResume').addEventListener('click', () => {
+  pauseOverlay.close();
   sfx.unlock();
-  void enterLandscape();
-  canvas.focus({ preventScroll: true });
+  void enterFullscreen();
 });
-{
-  // 도트 폰 아이콘: 세로 폰 + 도는 방향 화살표
-  const rows = ['.......aaaa.............', '......a....a............', '.....a......a...........', '..........aaa...........', '...........a............', '........................',
-    '.......pppppppppp.......', '.......pssssssssp.......', '.......pssssssssp.......', '.......pssssssssp.......', '.......pssssssssp.......', '.......pssssssssp.......',
-    '.......pssssssssp.......', '.......pssssssssp.......', '.......pssssssssp.......', '.......pssssssssp.......', '.......pssssssssp.......', '.......pssssssssp.......',
-    '.......pppppppppp.......', '.......pppaapppppp......'.slice(0, 24), '.......pppppppppp.......'];
-  const icon = must<HTMLCanvasElement>('#rotateIcon').getContext('2d');
-  const colors: Readonly<Record<string, string>> = { a: '#e0a458', p: '#c9ccd3', s: '#24272e' };
-  rows.forEach((row, y) => { for (let x = 0; x < row.length; x += 1) { const c = colors[row.charAt(x)]; if (c && icon) { icon.fillStyle = c; icon.fillRect(x, y + 1, 1, 1); } } });
+must<HTMLButtonElement>('#pauseItems').addEventListener('click', () => { pauseOverlay.close(); toggleItems(); });
+must<HTMLButtonElement>('#pauseSettings').addEventListener('click', () => { pauseOverlay.close(); openSettings(); });
+must<HTMLButtonElement>('#pauseAccount').addEventListener('click', () => { pauseOverlay.close(); must<HTMLButtonElement>('#accountToggle').click(); });
+pauseToggle.addEventListener('click', openPause);
+
+/* ── 버튼 배치 편집: 설정에서 들어가 끌어서 옮긴다 ── */
+let editing = false;
+let dragging: { el: HTMLElement; id: number; x: number; y: number } | null = null;
+const editableButtons = (): HTMLElement[] => [attackBtn, swapBtn, comboButton, ...skillPad.querySelectorAll<HTMLButtonElement>('button[data-skill]'), ...(isPortrait() ? [dashBtn] : [joystick])];
+function setEditing(on: boolean): void {
+  editing = on; dragging = null;
+  layoutEdit.hidden = !on;
+  document.documentElement.classList.toggle('layout-editing', on);
+  if (!on) saveLayout(layoutMode(), layouts[layoutMode()]);
+  fit();
 }
+const editButton = must<HTMLButtonElement>('#editLayout');
+editButton.addEventListener('click', () => { settingsDialog.close(); setEditing(true); });
+// 드래그 직후의 탭은 click이 오지 않는 경우가 있어 손을 뗄 때 처리한다
+must<HTMLButtonElement>('#layoutDone').addEventListener('pointerup', () => setEditing(false));
+must<HTMLButtonElement>('#layoutReset').addEventListener('pointerup', () => { layouts[layoutMode()] = {}; fit(); });
+layoutEdit.addEventListener('pointerdown', e => {
+  if ((e.target as Element).closest('button')) return;
+  let best: HTMLElement | null = null, near = 48;
+  for (const el of editableButtons()) {
+    const r = el.getBoundingClientRect(), d = Math.hypot(r.left + r.width / 2 - e.clientX, r.top + r.height / 2 - e.clientY);
+    if (d < near) { near = d; best = el; }
+  }
+  if (!best) return;
+  dragging = { el: best, id: e.pointerId, x: e.clientX, y: e.clientY };
+  layoutEdit.setPointerCapture(e.pointerId);
+});
+layoutEdit.addEventListener('pointermove', e => {
+  if (!dragging || e.pointerId !== dragging.id) return;
+  const layout = layouts[layoutMode()], key = layoutKey(dragging.el), [x, y] = layout[key] ?? [0, 0];
+  layout[key] = [x + e.clientX - dragging.x, y + e.clientY - dragging.y];
+  dragging.x = e.clientX; dragging.y = e.clientY;
+  fit();
+});
+layoutEdit.addEventListener('pointerup', () => { dragging = null; });
 
 for (const target of [window, window.visualViewport]) {
   target?.addEventListener('resize', () => fit());
 }
 window.addEventListener('orientationchange', () => { fit(); window.setTimeout(fit, 300); });
+portraitQuery.addEventListener('change', () => fit());
 document.addEventListener('fullscreenchange', () => fit());
 new ResizeObserver(() => { resetInput(); fit(); }).observe(viewportEl);
 applyTouchUi();
@@ -315,6 +393,12 @@ const endMove = (e: PointerEvent): void => {
 canvas.addEventListener('pointerup', endMove);
 canvas.addEventListener('pointercancel', endMove);
 canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+
+/* ── 세로: 대사창 아래 빈 조작 영역을 눌러도 대사가 넘어간다 ── */
+window.addEventListener('pointerdown', e => {
+  if (!isPortrait() || game.mode !== 'talk' || accounts.paused) return;
+  if (e.clientY >= stageEl.getBoundingClientRect().bottom + STATUS_ROW && !(e.target as Element).closest('#talk')) game.advanceTalk();
+});
 
 /* ── 화면(타이틀/쓰러짐/클리어)과 대사창 ── */
 uiEl.addEventListener('pointerdown', (e) => {
@@ -400,6 +484,16 @@ window.addEventListener('keyup', (e) => {
 
 /* ── 모바일 버튼 ── */
 let joystickPointer: number | null = null;
+/** 세로 플로팅 조이스틱: 누른 자리가 중심. 반경 50px, 데드존 10%. */
+const STICK_RADIUS = 50, STICK_DEAD = 0.1;
+let stickCenter: { x: number; y: number } | null = null;
+function updateFloatingStick(e: PointerEvent): void {
+  if (!stickCenter) return;
+  const dx = e.clientX - stickCenter.x, dy = e.clientY - stickCenter.y, distance = Math.hypot(dx, dy), length = Math.min(distance, STICK_RADIUS);
+  const strength = Math.max(0, (length / STICK_RADIUS - STICK_DEAD) / (1 - STICK_DEAD));
+  input.move = { x: distance ? dx / distance * strength : 0, y: distance ? dy / distance * strength : 0 };
+  joystickKnob.style.transform = `translate(${distance ? dx / distance * length : 0}px, ${distance ? dy / distance * length : 0}px)`;
+}
 function updateJoystick(e: PointerEvent): void {
   const r = joystick.getBoundingClientRect();
   const dx = e.clientX - r.left - r.width / 2;
@@ -416,7 +510,25 @@ function releaseJoystick(): void {
   joystickPointer = null;
   input.move = { x: 0, y: 0 };
   joystickKnob.style.transform = '';
+  stickCenter = null;
+  touchZone.classList.remove('is-held');
   if (pointer !== null && joystick.hasPointerCapture(pointer)) joystick.releasePointerCapture(pointer);
+  if (pointer !== null && touchZone.hasPointerCapture(pointer)) touchZone.releasePointerCapture(pointer);
+}
+touchZone.addEventListener('pointerdown', e => {
+  if (joystickPointer !== null || (game.mode !== 'play' && game.mode !== 'embrace')) return;
+  e.preventDefault(); sfx.unlock(); markTouch(e);
+  joystickPointer = e.pointerId;
+  stickCenter = { x: e.clientX, y: e.clientY };
+  touchZone.classList.add('is-held');
+  touchZone.setPointerCapture(e.pointerId);
+  joystick.style.left = `${e.clientX - STICK_RADIUS}px`;
+  joystick.style.top = `${e.clientY - STICK_RADIUS}px`;
+  updateFloatingStick(e);
+});
+touchZone.addEventListener('pointermove', e => { if (e.pointerId === joystickPointer) updateFloatingStick(e); });
+for (const event of ['pointerup', 'pointercancel', 'lostpointercapture']) {
+  touchZone.addEventListener(event, e => { if ((e as PointerEvent).pointerId === joystickPointer) releaseJoystick(); });
 }
 joystick.addEventListener('pointerdown', e => {
   if (joystickPointer !== null || (game.mode !== 'play' && game.mode !== 'embrace')) return;
@@ -457,7 +569,7 @@ function resetInput(): void {
   movePointer = null;
   movePosition = null;
   input.skillQueue.length = 0;
-  skillPointers.clear();skillAim.hidden=true;
+  skillPointers.clear();skillAim.hidden=true;game.setAimPreview(null);
 }
 // 포커스를 잃으면 keyup이 오지 않으니 눌린 방향키도 비운다
 window.addEventListener('blur', () => { resetInput(); heldArrows.clear(); });
@@ -466,6 +578,8 @@ document.addEventListener('visibilitychange', () => {
 });
 
 const skillPointers=new Map<number,{key:SkillKey;x:number;y:number}>();
+/** 세로 드래그 조준: 90px을 끌면 사거리 끝, 150px을 넘으면 취소 */
+const AIM_FULL=90,AIM_CANCEL=150,AIM_START=12;
 skillPad.addEventListener('pointerdown',e=>{
   const button=(e.target as Element).closest<HTMLButtonElement>('button[data-skill]');
   if(!button||button.disabled)return;
@@ -475,16 +589,27 @@ skillPad.addEventListener('pointerdown',e=>{
 skillPad.addEventListener('pointermove',e=>{
   const start=skillPointers.get(e.pointerId);if(!start||Math.hypot(e.clientX-start.x,e.clientY-start.y)<12)return;
   skillAim.hidden=false;skillAim.style.left=`${e.clientX-14}px`;skillAim.style.top=`${e.clientY-14}px`;
+  if(isPortrait()){
+    const dx=e.clientX-start.x,dy=e.clientY-start.y,pulled=Math.hypot(dx,dy),cancel=pulled>AIM_CANCEL;
+    skillAim.classList.toggle('is-cancel',cancel);
+    game.setAimPreview({...game.aimAt(start.key,dx,dy,Math.min(1,pulled/AIM_FULL)),cancel});
+  }
 });
 skillPad.addEventListener('pointerup',e=>{
   const start=skillPointers.get(e.pointerId);if(!start)return;
-  const point=toGame(e);
-  input.skillQueue.push(Math.hypot(e.clientX-start.x,e.clientY-start.y)>=12?{key:start.key,...point}:start.key);
-  skillPointers.delete(e.pointerId);skillAim.hidden=true;
+  const dx=e.clientX-start.x,dy=e.clientY-start.y,pulled=Math.hypot(dx,dy);
+  skillPointers.delete(e.pointerId);skillAim.hidden=true;skillAim.classList.remove('is-cancel');game.setAimPreview(null);
+  if(isPortrait()){
+    if(pulled>AIM_CANCEL)return;
+    input.skillQueue.push(pulled>=AIM_START?{key:start.key,...game.aimAt(start.key,dx,dy,Math.min(1,pulled/AIM_FULL))}:start.key);
+    return;
+  }
+  input.skillQueue.push(pulled>=AIM_START?{key:start.key,...toGame(e)}:start.key);
 });
-skillPad.addEventListener('pointercancel',e=>{skillPointers.delete(e.pointerId);skillAim.hidden=true;});
+skillPad.addEventListener('pointercancel',e=>{skillPointers.delete(e.pointerId);skillAim.hidden=true;skillAim.classList.remove('is-cancel');game.setAimPreview(null);});
 swapBtn.addEventListener('pointerdown',e=>{e.preventDefault();sfx.unlock();game.cycleSpirit();});
 comboButton.addEventListener('pointerdown',e=>{e.preventDefault();sfx.unlock();game.castCombo();});
+dashBtn.addEventListener('pointerdown',e=>{e.preventDefault();sfx.unlock();game.dash();});
 must('#spiritSlots').addEventListener('click',e=>{
   const button=(e.target as Element).closest<HTMLButtonElement>('button[data-spirit]');
   if(button){game.cycleSpirit(Number(button.dataset.spirit));canvas.focus({preventScroll:true});}
@@ -562,8 +687,9 @@ let last = performance.now();
 function frame(now: number): void {
   const dt = Math.min(0.05, (now - last) / 1000);
   last = now;
-  const paused=document.hidden||settingsDialog.open||rewardDialog.open||accounts.paused;
-  if(paused || (game.mode !== 'play' && game.mode !== 'embrace')) { resetInput(); hideTip(); }
+  const paused=document.hidden||settingsDialog.open||rewardDialog.open||accounts.paused||editing;
+  // 방을 넘어가는 동안은 손을 뗀 게 아니다: 조이스틱을 놓치면 문을 지날 때마다 다시 눌러야 한다
+  if(paused || (game.mode !== 'play' && game.mode !== 'embrace' && game.mode !== 'slide')) { resetInput(); hideTip(); }
   if(!paused && (game.mode === 'play' || game.mode === 'embrace')) applyArrows();
   if(!paused) game.update(dt);
   if (!paused && movePosition && (game.mode === 'play'||game.mode==='embrace')) {
@@ -573,10 +699,16 @@ function frame(now: number): void {
   game.render();
   ui.showEnemyInfo(game.inspectedInfo);
   ui.showPickup(game.pickupPrompt);
-  joystick.hidden = !(touchSeen && (game.mode === 'play' || game.mode === 'embrace'));
-  skillPad.hidden = !(game.hasSpirit && game.mode === 'play');
-  swapBtn.hidden = !(touchSeen && game.hasSpirit && game.mode === 'play');
-  attackBtn.hidden = !(touchSeen && game.attackUnlocked && (game.mode === 'play'||game.mode==='embrace'));
+  const portrait = isPortrait(), moving = game.mode === 'play' || game.mode === 'embrace';
+  joystick.hidden = portrait ? joystickPointer === null : !(touchSeen && (moving || editing));
+  skillPad.hidden = !((game.hasSpirit && game.mode === 'play') || editing);
+  swapBtn.hidden = !(touchSeen && ((game.hasSpirit && game.mode === 'play') || editing));
+  attackBtn.hidden = !(touchSeen && ((game.attackUnlocked && moving) || editing));
+  dashBtn.hidden = !(portrait && (game.mode === 'play' || editing));
+  dashBtn.disabled = game.dashRatio > 0;
+  dashBtn.style.setProperty('--cd', String(game.dashRatio));
+  touchZone.hidden = !(portrait && moving);
+  if (editing) comboButton.hidden = false;
   attackBtn.classList.toggle('is-embrace',game.mode==='embrace');attackBtn.textContent=game.mode==='embrace'?'안아주기':'공격';
   const inGame = game.mode === 'play' || game.mode === 'talk' || game.mode === 'slide'||game.mode==='embrace';
   document.documentElement.classList.toggle('in-game', inGame);
@@ -584,6 +716,8 @@ function frame(now: number): void {
   healthHud.hidden = !inGame;
   minimap.hidden = !inGame;
   settingsToggle.hidden = !inGame;
+  topBar.hidden = pauseToggle.hidden = statusBar.hidden = !(portrait && inGame);
+  editButton.hidden = !touchSeen;
   itemsToggle.hidden = !inGame;
   must<HTMLElement>('#stageInfo').hidden=!inGame;
   requestAnimationFrame(frame);

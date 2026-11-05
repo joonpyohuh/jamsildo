@@ -126,7 +126,9 @@ export class Ui {
     const now=performance.now();if(now-this.hudTime<80)return;this.hudTime=now;
     const q=<T extends HTMLElement=HTMLElement>(selector:string)=>document.querySelector<T>(selector)!;
     q('#stageInfo').textContent=`${state.chapter}장 ${CHAPTERS[state.chapter-1]!.name} · ${state.within}/5 (${state.stage}/20)`;
-    const energy=q('#energyHud');energy.hidden=!state.equipped.length||!['play','talk','slide','embrace'].includes(state.mode);
+    // 세로는 상단 바에 재화가 늘 보여야 해서 정령이 없어도 숨기지 않는다
+    const portraitHud=document.documentElement.classList.contains('portrait');
+    const energy=q('#energyHud');energy.hidden=(!state.equipped.length&&!portraitHud)||!['play','talk','slide','embrace'].includes(state.mode);
     q('#energyText').textContent=`기력 ${Math.floor(state.energy)}/${state.maxEnergy} · 온기 ${state.warmth}${state.armor?` · 방어 ${state.armor}`:''}${state.blocked?' · 스킬 봉인':''}`;
     q<HTMLProgressElement>('#energyBar').value=state.energy;q<HTMLProgressElement>('#energyBar').max=state.maxEnergy;
     const active=state.equipped[state.active];
@@ -146,7 +148,11 @@ export class Ui {
     for(const key of ['q','w','e','r'] as const){
       const button=q<HTMLButtonElement>(`#skills [data-skill="${key}"]`),spec=active?SKILLS[active.element][key]:null;
       const cd=active?.cooldowns[key]??0;button.disabled=!active||state.blocked||cd>0||(!state.infiniteEnergy&&state.energy<(spec?.cost??0))||(key==='r'&&active.tier<2);
-      button.dataset.cooldown=key==='r'&&active&&active.tier<2?'잠김':cd>0?String(Math.ceil(cd)):'';
+      const locked=key==='r'&&!!active&&active.tier<2,ratio=locked?1:spec?Math.min(1,cd/spec.cd):0;
+      button.dataset.cooldown=locked?'잠김':cd>0?String(Math.ceil(cd)):'';
+      button.style.setProperty('--cd',String(ratio));
+      const chip=q(`#statusCds [data-cd="${key}"]`);chip.textContent=cd>0?String(Math.ceil(cd)):key.toUpperCase();chip.classList.toggle('is-wait',cd>0||locked);
+      if(key==='r')q<HTMLProgressElement>('#ultGauge').value=locked||!active?0:1-ratio;
       button.querySelector('.skill-name')!.textContent=spec?.name??'';
       button.setAttribute('aria-label',spec?`${key.toUpperCase()} · ${spec.name} · 기력 ${spec.cost} · ${spec.cd}초`:'');
       if(active)button.style.borderColor=ELEMENT[active.element].glow;
@@ -155,6 +161,7 @@ export class Ui {
     if(state.combo){
       comboButton.disabled=!state.combo.ready;
       comboButton.dataset.cooldown=!state.combo.grown?'잠김':state.combo.cooldown>0?String(Math.ceil(state.combo.cooldown)):'';
+      comboButton.style.setProperty('--cd',!state.combo.grown?'1':String(Math.min(1,state.combo.cooldown/60)));
       comboButton.querySelector('.skill-name')!.textContent=state.combo.name;
       comboButton.setAttribute('aria-label',`F · 합동 궁극기 ${state.combo.name} · 기력 ${state.combo.cost}`);
     }

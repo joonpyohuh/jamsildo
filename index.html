@@ -503,7 +503,7 @@
       #superLabel { font-family: Galmuri9, monospace; font-size: calc(var(--px) * 10); line-height: calc(var(--px) * 14); letter-spacing: var(--px); color: var(--glow); }
       #superName { margin-top: calc(var(--px) * 6) !important; padding-bottom: calc(var(--px) * 10); border-bottom: 1px solid var(--glow); font-family: Galmuri11, monospace; font-size: calc(var(--px) * 33); line-height: calc(var(--px) * 40); letter-spacing: calc(var(--px) * 0.5); color: #eef0f3; white-space: nowrap; }
       #superLine { margin-top: calc(var(--px) * 10) !important; font-family: Galmuri9, monospace; font-size: calc(var(--px) * 10); line-height: calc(var(--px) * 16); color: var(--dim); word-break: keep-all; }
-      html.super-cut #skills, html.super-cut #spiritSlots, html.super-cut #spiritSummary, html.super-cut #energyHud, html.super-cut #minimap, html.super-cut #stageInfo, html.super-cut #settingsToggle, html.super-cut #itemsToggle, html.super-cut #accountBar, html.super-cut #healthHud, html.super-cut #bossHud, html.super-cut #enemyInfo, html.super-cut #hint, html.super-cut #center, html.super-cut #roomLabel, html.super-cut #pickHint, html.super-cut #formTag, html.super-cut #callBubble { visibility: hidden; }
+      html.super-cut #statusBar, html.super-cut #pauseToggle, html.super-cut #dash, html.super-cut #attack, html.super-cut #swapSpirit, html.super-cut #skills, html.super-cut #spiritSlots, html.super-cut #spiritSummary, html.super-cut #energyHud, html.super-cut #minimap, html.super-cut #stageInfo, html.super-cut #settingsToggle, html.super-cut #itemsToggle, html.super-cut #accountBar, html.super-cut #healthHud, html.super-cut #bossHud, html.super-cut #enemyInfo, html.super-cut #hint, html.super-cut #center, html.super-cut #roomLabel, html.super-cut #pickHint, html.super-cut #formTag, html.super-cut #callBubble { visibility: hidden; }
       /* 바닥 아이템 이름표: 게임 픽셀 격자에 맞춘다 */
       #pickHint { position: absolute; transform: translate(-50%, -100%); margin: 0; padding: 0 calc(var(--px) * 3); background: #08090bbd; font-family: Galmuri9, monospace; font-size: calc(var(--px) * 10); line-height: calc(var(--px) * 12); color: var(--dim); white-space: nowrap; }
       #pickHint[hidden] { display: none; }
@@ -635,14 +635,86 @@
       #skillTipText { white-space: pre-line; margin: 6px 0 0; font: 11px/1.65 Galmuri11, monospace; color: #cfd2d8; word-break: keep-all; }
       #skillTip.is-locked #skillTipText { color: #e6a99f; }
 
-      /* ═══ 세로 안내 ═══ */
-      #rotateOverlay { position: fixed; inset: 0; width: 100vw; height: 100dvh; max-width: none; max-height: none; margin: 0; padding: 24px; border: 0; background: #000; color: var(--pale); text-align: center; font: 16px/1.6 Galmuri11, monospace; }
-      #rotateOverlay[open] { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px; }
-      #rotateOverlay::backdrop { background: #000; }
-      #rotateIcon { width: 96px; height: 96px; image-rendering: pixelated; animation: turn 2.4s steps(1, end) infinite; }
-      #rotateOverlay.is-landscape #rotateIcon { display: none; }
-      #rotateText { margin: 0; letter-spacing: 0.02em; }
-      @keyframes turn { 0%, 45% { transform: rotate(0deg); } 50%, 95% { transform: rotate(-90deg); } }
+      /* ═══ 일시정지 ═══ */
+      #pauseOverlay { position: fixed; inset: 0; width: 100vw; height: 100dvh; max-width: none; max-height: none; margin: 0; padding: 24px; border: 0; background: #000d; color: var(--pale); text-align: center; }
+      #pauseOverlay[open] { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; }
+      #pauseOverlay::backdrop { background: #0008; }
+      #pauseText { margin: 0 0 14px; font: 20px Galmuri11, monospace; letter-spacing: 0.02em; }
+      #pauseOverlay .text-button { min-height: 40px; }
+      #editLayout { width: 100%; margin-top: 8px; }
+      #editLayout[hidden] { display: none; }
+
+      /* ═══ 버튼 배치 편집 ═══ */
+      #layoutEdit { position: fixed; inset: 0; z-index: 40; display: flex; align-items: flex-start; justify-content: center; padding: calc(var(--sa-t) + 16px) 16px 0; background: #0006; touch-action: none; }
+      #layoutEdit[hidden] { display: none; }
+      #layoutBar { display: flex; align-items: center; gap: 12px; padding: 8px 12px; border: 1px solid #5c626d; background: #101216; color: var(--pale); font: 12px Galmuri11, monospace; }
+      #layoutBar button { min-height: 40px; padding: 6px 12px; border: 1px solid #5c626d; background: #17191e; color: var(--pale); font: 12px Galmuri11, monospace; }
+      #layoutBar #layoutDone { border-color: var(--accent); color: var(--accent); }
+
+      /* ═══ 세로 레이아웃: 위에서부터 상단 바 → 보스 → 게임 → 상태 줄 → 조작 영역 ═══
+         --st/--ct(조작 영역 시작)는 main.ts fit이 계산한다. 게임 안의 도트 격자(--px)는 작아지므로 글자만 픽셀로 고정한다. */
+      #dash { position: fixed; right: auto; bottom: auto; margin: 0; z-index: 5; width: 56px; height: 56px; padding: 0; border: 2px solid #c9ccd380; border-radius: 50%; background: #08090b8c; color: var(--pale); font: 12px Galmuri11, monospace; touch-action: none; }
+      #dash[hidden], #touchZone[hidden], #topBar[hidden], #statusBar[hidden], #pauseToggle[hidden] { display: none; }
+      #touchZone { position: fixed; left: 0; width: 50%; top: var(--ct); bottom: 0; z-index: 3; touch-action: none; }
+      /* 첫 플레이어용: 조이스틱은 누르기 전엔 없으므로 자리만 옅게 알려준다 */
+      #touchZone::after { content: '눌러서 이동'; position: absolute; left: 0; right: 0; top: 50%; text-align: center; color: #3c404a; font: 11px Galmuri9, monospace; pointer-events: none; }
+      #touchZone.is-held::after { display: none; }
+      #topBar { position: fixed; left: 0; right: 0; top: 0; height: calc(var(--sa-t) + 44px); background: #0c0d11; border-bottom: 1px solid var(--line); }
+      #pauseToggle { position: fixed; z-index: 4; top: calc(var(--sa-t) + 4px); right: calc(var(--sa-r) + 8px); width: 44px; height: 36px; padding: 0; border: 1px solid var(--line); background: #08090bbd; color: var(--pale); font: 11px Galmuri9, monospace; }
+      #statusBar { position: fixed; z-index: 2; left: calc(var(--sa-l) + 48px); right: calc(var(--sa-r) + 76px); top: calc(var(--ct) - 40px); height: 40px; display: flex; align-items: center; gap: 8px; color: var(--pale); font: 10px Galmuri9, monospace; }
+      #statusCds { display: flex; gap: 3px; }
+      #statusCds i { width: 18px; font-style: normal; text-align: center; color: var(--accent); }
+      #statusCds i.is-wait { color: var(--dim); }
+      #statusUlt { flex: 1; min-width: 0; display: grid; gap: 2px; color: var(--dim); }
+      #ultGauge { display: block; width: 100%; height: 4px; accent-color: var(--accent); }
+      html.portrait #healthHud { z-index: 3; top: calc(var(--sa-t) + 14px); left: calc(var(--sa-l) + 8px); width: 124px; }
+      html.portrait #energyHud { z-index: 3; top: calc(var(--sa-t) + 8px); left: calc(var(--sa-l) + 140px); right: calc(var(--sa-r) + 60px); width: auto; background: none; white-space: nowrap; overflow: hidden; }
+      html.portrait #energyBar { height: 4px; margin-top: 3px; }
+      html.portrait #settingsToggle, html.portrait #itemsToggle, html.portrait #stageInfo { display: none; }
+      html.portrait.in-game #accountBar { display: none; }
+      html.portrait #bossHud:not([hidden]) { top: calc(var(--sa-t) + 46px); left: calc(var(--sa-l) + 8px); right: calc(var(--sa-r) + 8px); width: auto; height: 26px; padding: 2px 6px; transform: none; display: grid; grid-template-columns: auto 1fr; gap: 8px; align-items: center; }
+      html.portrait #bossHud #bossName { margin: 0; font-size: 11px; white-space: nowrap; }
+      html.portrait #bossPattern { display: none; }
+      html.touch-controls.portrait #spiritSlots:not([hidden]) { display: flex !important; z-index: 3; left: calc(var(--sa-l) + 8px); bottom: auto; top: calc(var(--ct) - 37px); }
+      html.portrait #spiritSlots button { display: none; width: 34px; height: 34px; padding: 1px; }
+      html.portrait #spiritSlots button.is-active { display: block; }
+      html.portrait #spiritSlots img { width: 28px; height: 28px; }
+      html.portrait #spiritSlots span { display: none; }
+      html.portrait #minimap { z-index: 3; top: calc(var(--ct) - 38px); right: calc(var(--sa-r) + 8px); width: 62px; height: 36px; padding: 2px; overflow: hidden; }
+      html.portrait #mapRooms { transform: scale(0.45); transform-origin: top left; }
+      html.portrait .map-key { display: none; }
+      html.portrait #attack { width: 76px; height: 76px; font-size: 16px; }
+      html.portrait #skills button { width: 52px; height: 52px; }
+      html.portrait #swapSpirit { width: 40px; height: 40px; }
+      html.portrait #joystick { width: 100px; height: 100px; pointer-events: none; background: #1017224d; }
+      html.portrait #joystickKnob { width: 40px; height: 40px; }
+      html.portrait #joystickLabel { display: none; }
+      /* 눈에 보이는 크기보다 터치 영역을 10px 넓힌다 */
+      html.portrait #attack::before, html.portrait #skills button::before, html.portrait #swapSpirit::before, html.portrait #dash::before { content: ''; position: absolute; inset: -10px; border-radius: 50%; }
+      /* 쿨타임: 버튼 위 어두운 원형 게이지 + 남은 초 */
+      html.portrait #skills button[data-cooldown]:not([data-cooldown=""])::after, html.portrait #dash::after { content: attr(data-cooldown); position: absolute; inset: 0; display: grid; place-items: center; border-radius: 50%; background: conic-gradient(#08090be6 calc(var(--cd, 0) * 360deg), #08090b40 0); color: #c9ccd3; font-size: 12px; }
+      html.portrait #dash:not(:disabled)::after { content: none; }
+      html.portrait #skillAim.is-cancel { border-color: var(--dim); opacity: 0.6; }
+      /* 게임 안 글자: 배율이 작아도 읽히게 */
+      html.portrait #formTag, html.portrait #pickHint { font-size: 10px; line-height: 12px; }
+      html.portrait #callBubble { font-size: 11px; padding: 3px 6px 4px; border-width: 1px; box-shadow: none; letter-spacing: 0; }
+      html.portrait #callBubble::after { display: none; }
+      html.portrait #hint { top: calc(var(--st) + 4px); }
+      html.portrait[data-boss] #hint { top: calc(var(--st) + 4px); }
+      html.portrait #hintText { font-size: 11px; }
+      html.portrait #center { font-size: 13px; top: calc(var(--st) + var(--px) * 150); }
+      html.portrait #superLabel, html.portrait #superLine { font-size: 9px; line-height: 13px; letter-spacing: 0; }
+      html.portrait #superName { font-size: 20px; line-height: 26px; }
+      html.portrait #down, html.portrait #clear { --px: 1.5px; }
+      /* 대사·오프닝 글자는 조작 영역 자리로 */
+      html.portrait #talk { --px: 1.5px; left: calc(var(--sa-l) + 8px); right: calc(var(--sa-r) + 8px); width: auto; transform: none; top: calc(var(--ct) + 8px); bottom: auto; min-height: 132px; max-height: calc(100dvh - var(--ct) - var(--sa-b) - 24px); overflow: auto; }
+      html.portrait #talkFace { align-self: flex-start; }
+      html.portrait #talkText { font-size: 15px; }
+      html.portrait #cineText { left: calc(var(--sa-l) + 16px); right: calc(var(--sa-r) + 16px); top: calc(var(--ct) - 16px); bottom: auto; font-size: 16px; }
+      html.portrait #cineSkip { top: calc(var(--sa-t) + 4px); right: calc(var(--sa-r) + 8px); font-size: 12px; }
+      html.portrait #rewardChoices { grid-template-columns: 1fr; }
+      html.portrait #rewardDialog { overflow: auto; }
+      html.layout-editing #skills, html.layout-editing #attack, html.layout-editing #swapSpirit, html.layout-editing #dash, html.layout-editing #joystick { z-index: 41; pointer-events: none; }
 
       /* ═══ 낮은 가로 화면의 타이틀: 왼쪽 제목, 오른쪽 메뉴 ═══ */
       @media (max-height: 500px) {
@@ -662,6 +734,7 @@
   </head>
   <body>
     <div id="viewport">
+    <div id="topBar" hidden></div>
     <div id="stage">
       <canvas id="game" width="480" height="270" tabindex="0" aria-label="잠실도 게임 화면"></canvas>
       <div id="ui">
@@ -795,16 +868,24 @@
         <input id="brightness" type="range" min="60" max="160" step="5" value="100" />
         <label for="volume">사운드 <output id="volumeValue" for="volume">50%</output></label>
         <input id="volume" type="range" min="0" max="100" step="5" value="50" />
+        <button id="editLayout" class="text-button" type="button" hidden>버튼 배치 편집</button>
         <button class="menu-button" value="close">돌아가기</button>
       </form>
     </dialog>
     <div id="safeProbe" aria-hidden="true"></div>
     <div id="skillTip" role="tooltip" hidden><strong id="skillTipName"></strong><span id="skillTipMeta"></span><p id="skillTipText"></p></div>
-    <dialog id="rotateOverlay" aria-labelledby="rotateText">
-      <canvas id="rotateIcon" width="24" height="24" aria-hidden="true"></canvas>
-      <p id="rotateText">화면을 가로로 돌려주세요</p>
-      <button id="rotateResume" class="menu-button" type="button" hidden>계속하기</button>
+    <dialog id="pauseOverlay" aria-labelledby="pauseText">
+      <p id="pauseText">일시정지</p>
+      <button id="pauseResume" class="menu-button" type="button">계속하기</button>
+      <button id="pauseItems" class="text-button" type="button">아이템</button>
+      <button id="pauseSettings" class="text-button" type="button">설정</button>
+      <button id="pauseAccount" class="text-button" type="button">계정</button>
     </dialog>
+    <button id="pauseToggle" type="button" hidden aria-label="일시정지">정지</button>
+    <div id="statusBar" hidden><span id="statusCds"><i data-cd="q">Q</i><i data-cd="w">W</i><i data-cd="e">E</i><i data-cd="r">R</i></span><span id="statusUlt">궁극기<progress id="ultGauge" max="1" value="0" aria-label="궁극기 게이지"></progress></span></div>
+    <div id="touchZone" hidden></div>
+    <div id="layoutEdit" hidden><div id="layoutBar"><span>버튼을 끌어서 옮기세요</span><button id="layoutReset" type="button">초기화</button><button id="layoutDone" type="button">완료</button></div></div>
+    <button id="dash" type="button" hidden aria-label="대시">대시</button>
     <button id="swapSpirit" type="button" hidden aria-label="정령 교체">교체</button>
     <button id="attack" type="button" hidden aria-label="공격">공격</button>
     <button id="joystick" type="button" tabindex="-1" hidden aria-label="이동 조이스틱: 원하는 방향으로 드래그"><span id="joystickKnob"></span><span id="joystickLabel">이동</span></button>
