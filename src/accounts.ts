@@ -2,13 +2,14 @@ import type { Game } from './game/game';
 import { BOSSES, CHAPTERS, LEVELS, SPIRIT_ASSETS, SPIRIT_NAMES } from './game/campaign';
 import { ELEMENT, type Element } from './game/config';
 import { readSave, useSaveOwner, writeSave } from './game/storage';
+import { downloadRunsCsv, renderRuns, type RunRow, type RunsOverview } from './runs';
 
 interface Player { id:string; username:string; is_admin:boolean; blocked:boolean; created_at:string; last_seen:string; play_seconds:number; stage:number; max_stage:number }
 interface Save { checkpoint:Record<string,unknown>|null; revision:number; updated_at:string }
 interface Account { user:Player|null; save?:Save }
 interface Guest { id:string; created_at:string; last_seen:string; play_seconds:number; sessions:number; stage:number; max_stage:number }
 interface GuestOverview { total:number; today:number; active_today:number; online:number; play_seconds:number; stages:{stage:number;players:number}[]; guests:Guest[] }
-interface Overview { guests:GuestOverview|null; stats:{players:number;today:number;online:number;active_today:number;play_seconds:number;blocked:number;stages:{stage:number;players:number}[]}; players:Player[]; total:number; audit:{action:string;created_at:string;player:{username:string}}[] }
+interface Overview { runs:RunsOverview|null; guests:GuestOverview|null; stats:{players:number;today:number;online:number;active_today:number;play_seconds:number;blocked:number;stages:{stage:number;players:number}[]}; players:Player[]; total:number; audit:{action:string;created_at:string;player:{username:string}}[] }
 const el = <T extends HTMLElement = HTMLElement>(id:string):T => document.getElementById(id) as T;
 const duration = (seconds:number):string => `${Math.floor(seconds/3600)}시간 ${Math.floor(seconds%3600/60)}분 ${Math.floor(seconds%60)}초`;
 const date = (value:string):string => new Date(value).toLocaleString('ko-KR',{timeZone:'Asia/Seoul',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false});
@@ -33,6 +34,7 @@ export class Accounts {
   private guestPage = 0;
   private guestTotal = 0;
   private guestPinging = false;
+  private runReporting = false;
   private guest = readSave();
   private initialized = false;
   /** 타이틀의 '회원가입 / 로그인'에서 열었으면, 성공하는 순간 게임으로 넘어간다 */
@@ -53,6 +55,7 @@ export class Accounts {
     el<HTMLFormElement>('adminSearch').addEventListener('submit',event=>{event.preventDefault();this.page=0;void this.loadAdmin();});
     el('prevPlayers').addEventListener('click',()=>{this.page=Math.max(0,this.page-1);void this.loadAdmin();});
     el('nextPlayers').addEventListener('click',()=>{if((this.page+1)*25<this.total)this.page++;void this.loadAdmin();});
+    el('exportRuns').addEventListener('click',()=>{void this.api<{rows:RunRow[]}>('runs_export').then(result=>downloadRunsCsv(result.rows)).catch(error=>{el('adminMessage').textContent=error.message;});});
     el('prevGuests').addEventListener('click',()=>{this.guestPage=Math.max(0,this.guestPage-1);void this.loadAdmin();});
     el('nextGuests').addEventListener('click',()=>{if((this.guestPage+1)*25<this.guestTotal)this.guestPage++;void this.loadAdmin();});
     el('leaveTest').addEventListener('click',()=>this.leaveTest());
@@ -208,6 +211,7 @@ export class Accounts {
     if(this.inFlight){await this.inFlight;if(!keepalive)return this.sync();return;}
     if(!this.testMode)this.game.saveCheckpoint();
     this.refreshContinue();
+    void this.reportRun(keepalive);
     if(!this.user){void this.pingGuest(keepalive);return;}
     if(this.testMode)return;
     if(this.conflict)throw new Error('저장 충돌을 먼저 해결해 주세요. 서버 기록은 덮어쓰지 않았습니다.');
@@ -240,6 +244,15 @@ export class Accounts {
     try{await this.api('guest',{guest:this.guestId(),session:this.session,seconds:Math.floor(this.seconds),stage:this.game.stageNumber},keepalive);}
     catch{/* 통계가 빠지는 것뿐이다 */}
     finally{this.guestPinging=false;}
+  }
+  /** 플레이 분석용 런 요약. 관리자 테스트와 개발 서버의 플레이는 보내지 않는다. */
+  private async reportRun(keepalive:boolean):Promise<void> {
+    const report=this.game.runReport;
+    if(!report||this.runReporting||this.testMode||(location.hostname==='localhost'&&readSave('guest-ping')!=='on'))return;
+    this.runReporting=true;
+    try{await this.api('run',{...report,guest:this.user?undefined:this.guestId()},keepalive);}
+    catch{/* 통계가 빠지는 것뿐이다 */}
+    finally{this.runReporting=false;}
   }
   private renderGuests(guests:GuestOverview|null):void {
     el('guestSection').hidden=!guests;
@@ -327,6 +340,8 @@ export class Accounts {
         count.textContent=`진행 중 ${stats.stages.find(stage=>stage.stage===at)?.players || 0}명${guest?` · 게스트 ${guest}`:''}`;
       }
       this.renderGuests(guests??null);
+      el('runsSection').hidden=!result.runs;
+      if(result.runs)renderRuns(el('runsData'),result.runs);
       const rows=el('playerRows');rows.replaceChildren();
       for(const player of result.players){
         const row=document.createElement('tr');

@@ -11,6 +11,8 @@ Supabase 프로젝트 `pcjewnxnbciofdmveeto` (서울)에서 Auth, Postgres, `jam
 
 - 게스트: 로그인 없이 플레이한 기록을 관리자 콘솔에서 본다. 브라우저에서 만든 랜덤 ID, 스테이지, 플레이 시간, 접속 횟수만 받는다. IP·기기 정보는 저장하지 않으며(횟수 제한용 해시뿐), 15초마다 그리고 탭을 숨길 때 보낸다. 시간은 세션 누적값이고 세션이 시작된 뒤 지난 시간을 넘지 못한다. 개발 서버(localhost)의 플레이는 보내지 않는다.
 
+- 플레이 분석: 한 판(런)을 `jamsildo_runs` 한 행으로 남긴다(플레이 시간, 멈춘·최고 스테이지, 스테이지별 사망, 상태, 정령·아티팩트·증강·무기). 15초마다 갱신하고, 관리자 콘솔에서 퍼널과 빌드 표를 보고 CSV로 내려받는다.
+
 ## 로컬 실행
 
 `.env.example`을 `.env.local`로 복사하고 `SUPABASE_URL`을 설정한 뒤 `npm run dev`를 실행한다. Vite는 계정 API를 Supabase Edge Function으로 프록시한다. Vercel은 `api/account.js`를 통해 같은 출처의 HttpOnly/Secure 세션 쿠키를 전달한다. 서버 키는 Supabase 함수 환경에서만 읽는다.

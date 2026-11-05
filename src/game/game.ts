@@ -32,6 +32,8 @@ export interface InputState {
   skillQueue: Array<SkillKey | { key: SkillKey; x: number; y: number }>;
 }
 
+export interface RunReport { run: string; stage: number; seconds: number; deaths: Record<string, number>; status: 'playing' | 'down' | 'cleared'; spirits: string[]; artifacts: string[]; augments: string[]; weapon: string }
+
 export type Mode = 'title' | 'opening' | 'talk' | 'play' | 'slide' | 'down' | 'clear' | 'embrace';
 
 const PLAYER_SPEED = 150;
@@ -62,6 +64,8 @@ const DASH_TIME = 0.14, DASH_SPEED = 2.5 * 32 / DASH_TIME, DASH_INVULN = 0.3, DA
 const STAGE_ATTACK = 0.09;
 /** 정령이 중급·상급이 되는 경험치 */
 const TIER2_XP = 5, TIER3_XP = 16;
+/** 궁극기가 열리는 정령 등급 */
+const ULT_TIER = 3;
 /** 방사형 탄이 시작되는 거리(보스 몸 바깥). 이 안쪽은 탄이 지나가지 않아 붙어서 치는 쪽이 안전하다. */
 const RING_GAP = 30;
 /** 바닥 아이템을 Space로 주울 수 있는 거리 */
@@ -277,6 +281,11 @@ export class Game {
   private kills: number[] = [];
   private lastHp = 0;
   private hitKind: NumberKind = 'hit';
+  /** 플레이 분석: 한 판의 기록. 쓰러져 다시 도전해도 같은 런이다. */
+  private runId = crypto.randomUUID();
+  private runSeconds = 0;
+  private deathsByStage: Record<string, number> = {};
+  private augmentsTaken: string[] = [];
   private bullets: Bullet[] = [];
   private orbs: Orb[] = [];
   private ghosts: Ghost[] = [];
@@ -482,6 +491,7 @@ export class Game {
     this.relic = null;
     this.drop = null;
     this.artifacts = {}; this.mods = newMods(); this.gauge = 0; this.ally = null; this.awakened = false; this.roomsSinceGold = 0;
+    this.runId = crypto.randomUUID(); this.runSeconds = 0; this.deathsByStage = {}; this.augmentsTaken = [];
     this.stageAugmented = false; this.lying = false; this.wakeT = 0; this.monologued = false; this.freeSkill = false; this.eclipseT = this.exposedT = 0;
     document.documentElement.classList.remove('cursed');
     this.lineCd = 0;
@@ -1123,16 +1133,23 @@ export class Game {
       this.equipSpirit(element);
       this.say('spirit', true);
       this.startTalk([
-        {who:'sena',face:'smile',text:`${SPIRIT_NAMES[element]}, ${ELEMENT[element].label}의 정령이야. Q/W/E로 기력을 써. 중급이 되면 R도 쓸 수 있어.`},
+        {who:'sena',face:'smile',text:`${SPIRIT_NAMES[element]}, ${ELEMENT[element].label}의 정령이야. Q/W/E로 기력을 써. 상급이 되면 R도 쓸 수 있어.`},
         {who:'sena',face:'flat',text:'Tab이나 아래 정령 아이콘으로 교체해. 정령마다 쿨타임은 따로 돌아가. 기력은 천천히 회복돼.'},
       ], () => undefined);
     }, () => this.growActiveSpirit());
   }
 
+  /** 상급이 되는 순간 궁극기를 바로 쓸 수 있게 쿨타임과 기력을 채운다 */
+  private unlockUlt(slot: SpiritSlot): void {
+    if (slot.tier < ULT_TIER) return;
+    slot.cooldowns.r = 0;
+    this.player.energy = this.player.maxEnergy;
+  }
+
   /** 새 정령을 받지 않을 때의 보상: 지금 정령이 한 단계 자란다 */
   private growActiveSpirit(): void {
     const slot = this.equipped[this.activeSpirit];
-    if (slot) { slot.xp += 8; slot.tier = Math.min(3, slot.tier + 1); }
+    if (slot) { slot.xp += 8; slot.tier = Math.min(3, slot.tier + 1); this.unlockUlt(slot); }
     this.player.energy = this.player.maxEnergy;
     this.room.rewarded = true;
     this.ui.say('함께 자란 만큼, 정령이 더 강해졌어.', 'smile');
@@ -1161,8 +1178,8 @@ export class Game {
     }
   }
 
-  /** 정령 슬롯: 처음부터 3칸. 먹은 정령이 말없이 사라지지 않게 스테이지와 무관하다. */
-  get slotLimit(): number { return 3; }
+  /** 정령 슬롯: 다섯 속성을 전부 데리고 다닐 수 있다 */
+  get slotLimit(): number { return 5; }
 
   cycleSpirit(index = (this.activeSpirit + 1) % Math.max(1, this.equipped.length)): void {
     if (this.mode !== 'play') return;
@@ -1206,7 +1223,7 @@ export class Game {
   saveCheckpoint(): boolean {
     if (this.mode === 'title' || this.mode === 'opening' || this.mode === 'slide') return true;
     // ponytail: 전투 도중 종료하면 현재 방의 적은 다시 생성한다. 전투 중 객체·타이머 직렬화가 필요할 때 확장한다.
-    const checkpoint = JSON.stringify({version:2,stage:this.stage.number,hp:this.player.hp,maxHp:this.player.maxHp,maxEnergy:this.player.maxEnergy,energy:this.player.energy,armor:this.player.armor,attack:this.runAttack,warmth:this.player.warmth,artifacts:this.artifacts,mods:this.mods,gauge:this.gauge,awakened:this.awakened,roomsSinceGold:this.roomsSinceGold,equipped:this.equipped,active:this.activeSpirit,acquired:[...this.acquired],rooms:this.stage.rooms.map(room=>({...room,marks:[]})),element:this.stage.element,room:[this.room.gx,this.room.gy],visited:[...this.visitedRooms].map(room=>[room.gx,room.gy]),attackUnlocked:this.attackUnlocked,cleared:this.mode==='clear'||this.endingT>=0,down:this.mode==='down'});
+    const checkpoint = JSON.stringify({version:2,stage:this.stage.number,hp:this.player.hp,maxHp:this.player.maxHp,maxEnergy:this.player.maxEnergy,energy:this.player.energy,armor:this.player.armor,attack:this.runAttack,warmth:this.player.warmth,artifacts:this.artifacts,mods:this.mods,gauge:this.gauge,awakened:this.awakened,roomsSinceGold:this.roomsSinceGold,runId:this.runId,runSeconds:this.runSeconds,deathsByStage:this.deathsByStage,augmentsTaken:this.augmentsTaken,equipped:this.equipped,active:this.activeSpirit,acquired:[...this.acquired],rooms:this.stage.rooms.map(room=>({...room,marks:[]})),element:this.stage.element,room:[this.room.gx,this.room.gy],visited:[...this.visitedRooms].map(room=>[room.gx,room.gy]),attackUnlocked:this.attackUnlocked,cleared:this.mode==='clear'||this.endingT>=0,down:this.mode==='down'});
     if (!this.saveEnabled) { this.sessionCheckpoint = checkpoint; return true; }
     writeSave(String(Math.max(this.player.maxEnergy, Number(readSave('max-energy')) || 30)), 'max-energy');
     return writeSave(checkpoint);
@@ -1227,6 +1244,8 @@ export class Game {
       this.stage = restored;
       for (const id of Object.keys(ARTIFACTS) as ArtifactId[]) { const count = clamp(Math.floor(Number(data.artifacts?.[id]) || 0), 0, 99); if (count) this.artifacts[id] = count; }
       if (data.mods) this.mods = { ...newMods(), ...data.mods };
+      if (typeof data.runId === 'string') this.runId = data.runId;
+      this.runSeconds = Number(data.runSeconds) || 0; this.deathsByStage = data.deathsByStage ?? {}; this.augmentsTaken = Array.isArray(data.augmentsTaken) ? data.augmentsTaken : [];
       this.gauge = clamp(Number(data.gauge) || 0, 0, GAUGE_MAX); this.awakened = data.awakened === true; this.roomsSinceGold = Number(data.roomsSinceGold) || 0;
       this.syncCursed();
       this.visitedRooms.clear(); this.roomCache.clear();
@@ -1396,6 +1415,7 @@ export class Game {
 
   private applyAugment(card: Augment): void {
     const p = this.player, stat = card.stat as AugmentStat;
+    this.augmentsTaken.push(card.id);
     if (stat === 'maxHp') this.changeMaxHp(card.value);
     else if (stat === 'maxEnergy') { p.maxEnergy = Math.min(MAX_ENERGY_CAP, p.maxEnergy + card.value); p.energy = p.maxEnergy; }
     else if (stat === 'formBoost') {
@@ -1435,7 +1455,8 @@ export class Game {
       if (tier <= slot.tier) continue;
       slot.tier = tier;
       this.say('evolve', true);
-      this.beginCut('evolve', [slot], tier === 2 ? '중급 · R 해금' : '상급 진화', SPIRIT_NAMES[slot.element], '', 0.9, ELEMENT[slot.element].glow, () => undefined);
+      this.unlockUlt(slot);
+      this.beginCut('evolve', [slot], tier === ULT_TIER ? '상급 · R 해금' : '중급 진화', SPIRIT_NAMES[slot.element], '', 0.9, ELEMENT[slot.element].glow, () => undefined);
       return;
     }
   }
@@ -1447,6 +1468,16 @@ export class Game {
   }
 
   get gaugeRatio(): number { return this.gauge / GAUGE_MAX; }
+
+  /** 서버로 보내는 런 요약. 플레이가 시작되기 전이면 null. */
+  get runReport(): RunReport | null {
+    if (this.runSeconds < 1) return null;
+    return {
+      run: this.runId, stage: this.stage.number, seconds: Math.floor(this.runSeconds), deaths: this.deathsByStage,
+      status: this.mode === 'down' ? 'down' : this.mode === 'clear' && this.stage.number >= 20 ? 'cleared' : 'playing',
+      spirits: this.equipped.map(slot => `${slot.element}:${slot.tier}`), artifacts: Object.keys(this.artifacts), augments: this.augmentsTaken, weapon: this.weapon,
+    };
+  }
 
   /** C · 세나 궁극기: 컷인 뒤 8초간 사람 모습으로 함께 싸운다 */
   castUlt(): void {
@@ -1484,6 +1515,7 @@ export class Game {
   /** 런 상태의 시간 처리: 아티팩트 조건, 궁극기 동료, 장시간 정지 */
   private updateRun(dt: number): void {
     const p = this.player;
+    this.runSeconds += dt;
     this.yearbookCd = Math.max(0, this.yearbookCd - dt);
     this.eclipseT = Math.max(0, this.eclipseT - dt);
     this.exposedT = Math.max(0, this.exposedT - dt);
@@ -1494,7 +1526,8 @@ export class Game {
     if (this.idleT > IDLE_LINE) { this.idleT = 0; this.say('idle'); }
     if (this.has('wet_blanket') && this.stillT >= 1) p.hp = Math.min(p.maxHp, p.hp + p.maxHp * 0.01 * dt);
     this.fullEnergyT = p.energy >= p.maxEnergy ? this.fullEnergyT + dt : 0;
-    if (this.has('leave_form') && this.fullEnergyT >= 3) this.freeSkill = true;
+    // 기력 무한이면 늘 가득이라 매 스킬이 공짜가 된다. 실제로 기력을 모았을 때만 발동한다.
+    if (this.has('leave_form') && this.fullEnergyT >= 3 && !this.cheats.energy) this.freeSkill = true;
     if (document.documentElement.classList.contains('cursed') && Math.random() < dt * 6) this.fx.burst(p.x, p.y - 6, 0, 1, ['#1b1a22', '#2b2a35'], { spread: Math.PI, speed: 14, life: 0.8 });
     if (p.hp > this.lastHp + 1) { this.numbers.spawn(p.x, p.y - 26, Math.round(p.hp - this.lastHp), 'heal'); this.lastHp = p.hp; }
     else if (p.hp < this.lastHp) this.lastHp = p.hp;
@@ -1554,7 +1587,7 @@ export class Game {
       if (this.chaosTime <= 0) p.effects.stun = 3;
     }
     if (this.hasSpirit && !this.skillHinted && this.activeEnemies().length) {
-      this.skillHinted = true; this.ui.say('Q/W/E는 기력, R은 중급부터. Tab으로 정령 교체.', 'smile');
+      this.skillHinted = true; this.ui.say('Q/W/E는 기력, R은 상급부터. Tab으로 정령 교체.', 'smile');
     }
   }
 
@@ -1562,7 +1595,7 @@ export class Game {
     const slot = this.equipped[this.activeSpirit], p = this.player;
     if (!slot || p.effects.stun || p.effects.silence || this.endingT >= 0) return;
     const spec = SKILLS[slot.element][key];
-    if (key === 'r' && slot.tier < 2) { this.ui.say('R은 정령이 중급으로 자라면 열려.', 'flat'); return; }
+    if (key === 'r' && slot.tier < ULT_TIER) { this.ui.say('R은 정령이 상급으로 자라면 열려.', 'flat'); return; }
     if (slot.cooldowns[key] > 0) return;
     if (!this.cheats.energy && p.energy < spec.cost) { this.ui.say(`기력이 부족해. ${spec.cost}만큼 필요해.`, 'troubled'); return; }
     if (!this.cheats.energy) p.energy -= slot.element === 'chaos' && key === 'r' ? p.energy : spec.cost;
@@ -1816,7 +1849,7 @@ export class Game {
     this.ui.hideSuper();
   }
 
-  /** 컷인의 정령 그림. R과 합동 궁극기는 중급부터라 하급 그림은 필요 없다. */
+  /** 컷인의 정령 그림. R과 합동 궁극기는 상급이라 하급 그림은 필요 없다. */
   private spiritArt(slot: Pick<SpiritSlot, 'element' | 'tier'>): string {
     return `cut_evo_${slot.element}_${slot.tier >= 3 ? 'upper' : 'medium'}`;
   }
@@ -1929,7 +1962,7 @@ export class Game {
     const combo = this.comboSlots();
     if (!combo) { this.ui.say('같이 쏠 짝이 없어. 메르와 쿠이, 아니면 루나와 카이.', 'flat'); return; }
     const { spec, slots } = combo, [a, b] = slots;
-    if (a.tier < spec.tier || b.tier < spec.tier) { this.ui.say(`둘 다 ${spec.tier === 3 ? '상급' : '중급'}이 돼야 같이 쏠 수 있어.`, 'flat'); return; }
+    if (a.tier < spec.tier || b.tier < spec.tier) { this.ui.say('둘 다 상급이 돼야 같이 쏠 수 있어.', 'flat'); return; }
     if (a.cooldowns.r > 0 || b.cooldowns.r > 0) { this.ui.say('둘의 R이 다 돌아와야 해.', 'flat'); return; }
     if (!this.cheats.energy && p.energy < spec.cost) { this.ui.say(`기력이 부족해. ${spec.cost}만큼 필요해.`, 'troubled'); return; }
     if (!this.cheats.energy) p.energy -= spec.cost;
@@ -2677,6 +2710,7 @@ export class Game {
 
   private playerDown(): void {
     this.clearSupers();
+    this.deathsByStage[this.stage.number] = (this.deathsByStage[this.stage.number] ?? 0) + 1;
     this.ui.setDownLine(pickLine('down'));
     this.mode = 'down';
     this.saveCheckpoint();
@@ -2909,7 +2943,7 @@ export class Game {
     this.ui.center(`${BOSSES[b.id].name} · ${phase+1}페이즈`);
     this.fx.ring(enemy.x,enemy.y,70,0.5);
     // 비틀거리고 몸에서 그늘이 터져 나온다
-    enemy.squash=1;b.stagger=Math.max(b.stagger,0.6);this.fx.shake(8);
+    enemy.squash=1;this.fx.shake(8);
     this.fx.burst(enemy.x,enemy.y-enemy.r,0,36,['#140c2c','#4a2f8a',COLOR.dim],{spread:Math.PI,speed:150,life:0.6});
     if(b.id==='giant_bother'&&phase===1)this.summon(enemy,'bother',4);
     if(b.id==='blanket'&&phase===1){const blankets=this.summon(enemy,'bother',4,'blanket',150);blankets.forEach((blanket,i)=>{blanket.x=i%2?FLOOR.x+FLOOR.w-25:FLOOR.x+25;blanket.y=i<2?FLOOR.y+25:FLOOR.y+FLOOR.h-25;});b.splitAt=b.elapsed;}

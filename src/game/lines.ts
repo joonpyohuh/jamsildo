@@ -63,11 +63,11 @@ export function tutorialLines(key: TutorialKey, touch: boolean): readonly Talk[]
     ];
     case 'spirit': return [
       say('정령방이야. 지키는 놈을 넘기면 가운데에 정령이 나타나.'),
-      say('정령은 세 마리까지 데리고 다녀. 고르면 스킬을 쓸 수 있어. 저놈, 평범한 그늘보다 세니까 조심해.', 'troubled'),
+      say('정령은 다섯 마리까지 데리고 다녀. 고르면 스킬을 쓸 수 있어. 저놈, 평범한 그늘보다 세니까 조심해.', 'troubled'),
     ];
     case 'skills': return [
       say(touch ? 'Q W E 버튼이 정령 스킬이야. 탭하면 가까운 적에게, 끌면 원하는 곳에 나가.' : 'QWER이 정령 스킬이야. 가까운 적에게 알아서 나가.'),
-      say('기력을 쓰고, 기력은 천천히 차. 스킬은 쓸수록 정령이 자라고, 중급이 되면 R 초필살기가 열려.', 'smile'),
+      say('기력을 쓰고, 기력은 천천히 차. 스킬은 쓸수록 정령이 자라고, 상급이 되면 R 초필살기가 열려.', 'smile'),
       say(touch ? '정령이 둘이면 교체 버튼으로 바꿔. 쿨타임은 정령마다 따로 돌아.' : '정령이 둘이면 Tab으로 바꿔. 쿨타임은 정령마다 따로 돌아.'),
     ];
     case 'boss': return [

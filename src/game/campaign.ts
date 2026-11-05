@@ -51,10 +51,10 @@ export const SKILL_DESC: Record<Element, Record<SkillKey, string>> = {
     r: '5초 동안 무작위 스킬이 연발된다. 끝나면 3초 기절.',
   },
 };
-/** 합동 궁극기: 짝이 되는 두 정령이 함께 있고, 둘 다 중급 이상에 R이 준비됐을 때 쓴다 */
+/** 합동 궁극기: 짝이 되는 두 정령이 함께 있고, 둘 다 상급에 R이 준비됐을 때 쓴다 */
 export interface ComboSpec { name: string; pair: readonly [Element, Element]; tier: number; cost: number; damage: number; text: string; /** 없으면 두 정령의 R 쿨타임 */ cd?: number }
 export const COMBOS: readonly ComboSpec[] = [
-  { name: '증기 나선', pair: ['fire', 'water'], tier: 2, cost: 30, damage: 220, text: '메르와 쿠이가 불과 물을 꼬아 쏜다. 앞의 그늘을 세 번 꿰뚫고 불태운다.' },
+  { name: '증기 나선', pair: ['fire', 'water'], tier: 3, cost: 30, damage: 220, text: '메르와 쿠이가 불과 물을 꼬아 쏜다. 앞의 그늘을 세 번 꿰뚫고 불태운다.' },
   { name: '일식', pair: ['light', 'dark'], tier: 3, cost: 60, cd: 90, damage: 80, text: '화면이 3초 어두워지고 모든 그늘에게 큰 피해와 표식을 남긴다. 이후 5초간 받는 피해 +20%.' },
 ];
 /** 일반 그늘 이름: 챕터 스프라이트 → 이름. 스프라이트가 없으면 종류 이름으로 돌아간다. */

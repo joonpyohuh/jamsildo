@@ -89,7 +89,7 @@ const screen=async(page,x,y)=>{const b=await page.locator('#game').boundingBox()
   console.log('PASS 우클릭: 이동, 적 추적 공격, 취소');
 
   // QWER
-  await page.evaluate(async()=>{const g=window.__jamsildo,{newSpirit}=await import('/src/game/campaign.ts');g.equipped.length=0;const s=newSpirit('fire');s.tier=2;g.equipped.push(s);g.acquired.add('fire');g.hasSpirit=true;g.activeSpirit=0;g.cheats.energy=true;});
+  await page.evaluate(async()=>{const g=window.__jamsildo,{newSpirit}=await import('/src/game/campaign.ts');g.equipped.length=0;const s=newSpirit('fire');s.tier=3;g.equipped.push(s);g.acquired.add('fire');g.hasSpirit=true;g.activeSpirit=0;g.cheats.energy=true;});
   for(const key of ['q','w','e','r']){
    await page.evaluate(()=>{const g=window.__jamsildo;for(const k of 'qwer')g.equipped[0].cooldowns[k]=0;g.player.energy=g.player.maxEnergy;g.pendingCast=null;});
    await page.keyboard.press(`Key${key.toUpperCase()}`);await page.waitForTimeout(90);

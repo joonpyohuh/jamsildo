@@ -642,7 +642,7 @@ function showTip(key: string, anchor: DOMRect): void {
   const slot = game.equipped[game.activeSpirit];
   if (!slot) { hideTip(); return; }
   const k = key as SkillKey, spec = SKILLS[slot.element][k];
-  const locked = k === 'r' && slot.tier < 2;
+  const locked = k === 'r' && slot.tier < 3;
   const sig = `${slot.element}${k}${slot.tier}`;
   if (tipFor !== sig) {
     tipFor = sig;
@@ -650,7 +650,7 @@ function showTip(key: string, anchor: DOMRect): void {
     must('#skillTipMeta').textContent = `${SPIRIT_NAMES[slot.element]} · 기력 ${spec.cost} · 재사용 ${spec.cd}초`;
     must('#skillTipText').textContent = locked ? `${SKILL_DESC[slot.element][k]}
 
-정령이 중급으로 자라면 열린다. (스킬을 쓰며 성장)` : SKILL_DESC[slot.element][k];
+정령이 상급으로 자라면 열린다. (스킬을 쓰며 성장)` : SKILL_DESC[slot.element][k];
     skillTip.classList.toggle('is-locked', locked);
     skillTip.style.borderColor = ELEMENT[slot.element].glow;
   }
@@ -673,7 +673,7 @@ document.addEventListener('pointermove', e => {
     tipFor = null;
     must('#skillTipName').textContent = `G · ${combo.name}`;
     must('#skillTipMeta').textContent = `${combo.pair} · 기력 ${combo.cost}`;
-    must('#skillTipText').textContent = `${combo.text}\n\n두 정령이 모두 중급이고 R이 준비돼 있어야 한다. 쓰면 둘의 R이 함께 돈다.`;
+    must('#skillTipText').textContent = `${combo.text}\n\n두 정령이 모두 상급이고 R이 준비돼 있어야 한다. 쓰면 둘의 R이 함께 돈다.`;
     skillTip.classList.toggle('is-locked', !combo.grown);
     skillTip.style.borderColor = '#e0a458';
     skillTip.hidden = false;

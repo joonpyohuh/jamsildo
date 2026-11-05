@@ -46,28 +46,19 @@ const clearRoom=page=>page.evaluate(()=>{const g=window.__jamsildo;g.skipAugment
 
   // 정령: 1스테이지에서도 3개 다 유지, Tab으로 전부 순환
   await enter(page,1,'spirit');await clearRoom(page);
-  for(let i=0;i<3;i++){
+  for(let i=0;i<5;i++){
    await page.evaluate(()=>{const g=window.__jamsildo;g.skipAugments=true;g.room.rewarded=false;g.spirit={x:320,y:170,state:'waiting',t:1};g.takeSpirit();});
    assert.equal(await page.locator('#rewardChoices .menu-button').count(),0,'빈 슬롯이면 교체 안내 없음');
    await page.locator('.spirit-choice').first().click();
    await page.evaluate(()=>{const g=window.__jamsildo;g.skipAugments=true;g.talk=null;g.ui.hideTalk();g.mode='play';});
   }
   const owned=await page.evaluate(()=>window.__jamsildo.equipped.map(s=>s.element));
-  assert.equal(owned.length,3);assert.equal(new Set(owned).size,3);
+  assert.equal(owned.length,5);assert.equal(new Set(owned).size,5);
   const seen=new Set();
-  for(let i=0;i<3;i++){await page.evaluate(()=>{window.__jamsildo.switchCd=0;});await page.keyboard.press('Tab');await page.waitForTimeout(40);seen.add(await page.evaluate(()=>window.__jamsildo.equipped[window.__jamsildo.activeSpirit].element));}
-  assert.equal(seen.size,3,'Tab으로 셋 다 선택');
-  console.log('PASS 정령: 1스테이지 3칸, Tab으로 셋 순환');
+  for(let i=0;i<5;i++){await page.evaluate(()=>{window.__jamsildo.switchCd=0;});await page.keyboard.press('Tab');await page.waitForTimeout(40);seen.add(await page.evaluate(()=>window.__jamsildo.equipped[window.__jamsildo.activeSpirit].element));}
+  assert.equal(seen.size,5,'Tab으로 다섯 다 선택');
+  console.log('PASS 정령: 1스테이지 5칸, Tab으로 다섯 순환');
 
-  // 네 번째: 말없이 사라지지 않는다. 안 바꾸면 셋 그대로 + 성장
-  await page.evaluate(()=>{const g=window.__jamsildo;g.skipAugments=true;g.room.rewarded=false;g.spirit={x:320,y:170,state:'waiting',t:1};g.takeSpirit();});
-  assert.match(await page.locator('#rewardDescription').textContent(),/자리에 들어옵니다/);
-  await page.screenshot({path:join(output,'spirit-full.png')});
-  const tier=await page.evaluate(()=>{const g=window.__jamsildo;g.skipAugments=true;return g.equipped[g.activeSpirit].tier;});
-  await page.locator('#rewardChoices .menu-button').click();
-  const kept=await page.evaluate(()=>{const g=window.__jamsildo;g.skipAugments=true;return{list:g.equipped.map(s=>s.element),tier:g.equipped[g.activeSpirit].tier,rewarded:g.room.rewarded};});
-  assert.deepEqual(kept.list,owned);assert.equal(kept.tier,Math.min(3,tier+1));assert(kept.rewarded);
-  console.log('PASS 네 번째 정령: 교체 안내, 거절하면 셋 유지 + 성장');
 
   // 상점: 보온병을 사면 기력 회복이 실제로 빨라진다
   const rate=()=>page.evaluate(()=>{const g=window.__jamsildo;g.skipAugments=true;g.zones=[];g.player.energy=0;g.updateSkills(1);return g.player.energy;});

@@ -9,7 +9,7 @@ const base=process.env.BASE_URL||'http://localhost:5173';
 const output=join(tmpdir(),'jamsildo-supers');
 
 /** 빈 방에 정령과 허수아비 그늘을 세운다. place: [[x,y],...] */
-const arena=(page,elements,place,tier=2)=>page.evaluate(async([elements,place,tier])=>{
+const arena=(page,elements,place,tier=3)=>page.evaluate(async([elements,place,tier])=>{
  const g=window.__jamsildo,{newSpirit}=await import('/src/game/campaign.ts');
  g.openingSeen=true;g.opening=null;g.ui.showCine(false);g.debugStage(12);g.talk=null;g.ui.hideTalk();
  g.enterRoom(g.stage.rooms.find(r=>r.kind==='normal'),null);

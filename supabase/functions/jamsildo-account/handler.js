@@ -78,6 +78,19 @@ export function createHandler({ url, key, serviceKey }) {
           token = session.access_token; user = session.user; setSession(session);
         } catch (error) { if (error.status >= 500) throw error; }
       }
+      if (action === 'run') {
+        // 게스트도 계정도 같은 경로: 주인은 서버가 정한다. 값은 형식이 맞는 것만 받는다.
+        const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+        const list = (value, pattern) => Array.isArray(value) && value.length <= 80 && value.every(item => typeof item === 'string' && pattern.test(item));
+        const deaths = body.deaths && typeof body.deaths === 'object' && !Array.isArray(body.deaths) && Object.entries(body.deaths).every(([stage, count]) => /^([1-9]|1[0-9]|20)$/.test(stage) && Number.isInteger(count) && count >= 0 && count < 100000);
+        if (typeof body.run !== 'string' || !uuid.test(body.run) || (!user && (typeof body.guest !== 'string' || !uuid.test(body.guest))) || !Number.isInteger(body.stage) || body.stage < 1 || body.stage > 20 ||
+          !Number.isInteger(body.seconds) || body.seconds < 0 || body.seconds > 2147483647 || !deaths || !['playing','down','cleared'].includes(body.status) ||
+          !list(body.spirits, /^[a-z]+:[1-3]$/) || !list(body.artifacts, /^[a-z_]{1,32}$/) || !list(body.augments, /^[a-z0-9_]{1,32}$/) || typeof body.weapon !== 'string' || !/^[a-z]{0,16}$/.test(body.weapon)) fail('잘못된 요청입니다.');
+        const { data: allowed } = await api('/rest/v1/rpc/jamsildo_rate_limit', { service: true, method: 'POST', body: { p_key: await digest(`run:ip:${ip}`), p_limit: 240 } });
+        if (!allowed) fail('시도가 너무 많습니다. 10분 후 다시 시도해 주세요.',429);
+        await api('/rest/v1/rpc/jamsildo_run_ping', { service: true, method: 'POST', body: { p_run: body.run, p_player: user?.id ?? null, p_guest: user ? null : body.guest, p_stage: body.stage, p_seconds: body.seconds, p_deaths: body.deaths, p_status: body.status, p_spirits: body.spirits, p_artifacts: body.artifacts, p_augments: body.augments, p_weapon: body.weapon } });
+        return json({ ok:true });
+      }
       if (action === 'logout') {
         if (user) await api('/auth/v1/logout?scope=local', { token, method: 'POST' });
         cookie('access','',0); cookie('refresh','',0); return json({ ok:true });
@@ -105,13 +118,14 @@ export function createHandler({ url, key, serviceKey }) {
         await api('/auth/v1/user', { token, method:'PUT', body:{password:body.password} });
         return json({ok:true});
       }
-      if (action === 'admin' || action === 'block') {
+      if (action === 'admin' || action === 'block' || action === 'runs_export') {
         if (user.app_metadata?.jamsildo_admin !== true || !profile.is_admin) fail('관리자만 접근할 수 있습니다.',403);
         if (action === 'block') {
           if (typeof body.blocked !== 'boolean' || typeof body.target !== 'string' || !/^[0-9a-f-]{36}$/i.test(body.target)) fail('잘못된 계정 요청입니다.');
           await api('/rest/v1/rpc/jamsildo_admin_block', { token, method:'POST', body:{p_target:body.target,p_blocked:body.blocked} });
           return json({ok:true});
         }
+        if (action === 'runs_export') return json({ rows: (await api('/rest/v1/rpc/jamsildo_admin_runs_export', { token, method:'POST', body:{} })).data });
         const search = typeof body.search === 'string' ? body.search.trim().toLowerCase() : '';
         if (search && !/^[a-z0-9_]{1,20}$/.test(search)) fail('아이디로 검색해 주세요.');
         const page = Number.isInteger(body.page) && body.page >= 0 && body.page < 100000 ? body.page : 0;
@@ -122,7 +136,8 @@ export function createHandler({ url, key, serviceKey }) {
         // 게스트 표가 아직 없는 서버에서도 콘솔은 열려야 한다
         const guestPage = Number.isInteger(body.guestPage) && body.guestPage >= 0 && body.guestPage < 100000 ? body.guestPage : 0;
         const guests = await api('/rest/v1/rpc/jamsildo_admin_guests', { token, method:'POST', body:{p_page:guestPage} }).then(result => result.data).catch(() => null);
-        return json({stats,players,total:Number(response.headers.get('content-range')?.split('/')[1] || 0),audit,guests});
+        const runs = await api('/rest/v1/rpc/jamsildo_admin_runs', { token, method:'POST', body:{p_page:0} }).then(result => result.data).catch(() => null);
+        return json({stats,players,total:Number(response.headers.get('content-range')?.split('/')[1] || 0),audit,guests,runs});
       }
       return json({error:'지원하지 않는 요청입니다.'},400);
     } catch (error) {

@@ -91,18 +91,22 @@ const player=admin=>({id:randomUUID(),username:admin?'jp0405':'qa',is_admin:admi
   // 콘솔
   const guests=Array.from({length:3},(_,i)=>({id:randomUUID(),created_at:now(),last_seen:i?'2026-11-01T03:00:00Z':now(),play_seconds:3725*(i+1),sessions:i+1,stage:i+2,max_stage:i+5}));
   const overview=extra=>({stats:{players:2,today:1,online:0,active_today:1,play_seconds:90,blocked:0,stages:[{stage:3,players:1}]},players:[],total:0,audit:[],...extra});
+  const runs={summary:{runs:10,people:4,seconds:3600,deaths:12,cleared:1,left:6},stages:[{stage:1,reached:10,deaths:5,stopped:3},{stage:2,reached:7,deaths:2,stopped:2}],builds:[{kind:'artifact',id:'unread',runs:4,avg_stage:2.5,avg_deaths:1},{kind:'spirit',id:'fire',runs:6,avg_stage:2,avg_deaths:1},{kind:'weapon',id:'bow',runs:3,avg_stage:1.5,avg_deaths:2},{kind:'augment',id:'atk1',runs:5,avg_stage:2,avg_deaths:1}],people:[{who:'qa',runs:3,deaths:2,seconds:125,best:2,last_stage:2,last_seen:now()}],recent:[{who:'qa',started_at:now(),seconds:125,stage:2,max_stage:2,deaths:1,state:'left',spirits:['fire:3'],artifacts:['unread'],augments:['atk1'],weapon:'bow'}]};
   let guestData={total:53,today:4,active_today:6,online:1,play_seconds:7450,stages:[{stage:3,players:2}],guests};
   const pages=[];
   const admin=await browser.newPage({viewport:{width:1280,height:900}});admin.on('pageerror',e=>errors.push(e.message));
   await admin.route('**/api/account',route=>{
    const body=route.request().postDataJSON();
-   if(body?.action==='admin'){pages.push(body.guestPage);return route.fulfill({json:overview({guests:guestData})});}
+   if(body?.action==='admin'){pages.push(body.guestPage);return route.fulfill({json:overview({guests:guestData,runs})});}
    if(body)return route.fulfill({json:{ok:true,revision:0}});
    return route.fulfill({json:{user:player(true),save:{checkpoint:null,revision:0,updated_at:now()}}});
   });
   await admin.goto(base);await admin.waitForFunction(()=>!document.querySelector('#startGame').disabled);
   await admin.locator('#accountToggle').click();await admin.locator('#openAdmin').click();
   await admin.waitForFunction(()=>document.querySelectorAll('#guestRows tr').length===3);
+  const analysis=await admin.locator('#runsData').innerText();
+  for(const word of ['스테이지 퍼널','읽지 않은 메시지','메르','공격력 +1','여기서 멈춤','시도'])assert(analysis.includes(word),word);
+  await admin.locator('#runsSection').scrollIntoViewIfNeeded();await admin.screenshot({path:join(output,'runs.png')});
   const text=await admin.locator('#guestSection').innerText();
   assert.match(text,new RegExp(`게스트 ${guests[0].id.slice(0,8)}`));assert.match(text,/● 게스트/,'접속 중 표시');assert.match(text,/1시간 2분 5초/);assert.match(text,/2 \/ 5/);assert.match(text,/1 \/ 3 · 53명/);
   const kpis=await admin.locator('#adminKpis').innerText();

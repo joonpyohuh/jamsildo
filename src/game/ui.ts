@@ -93,7 +93,7 @@ export class Ui {
   chooseSpirit(elements:readonly Element[],replacing:string|null,onSelect:(element:Element)=>void,onKeep:()=>void):void {
     const dialog=document.querySelector<HTMLDialogElement>('#rewardDialog')!;
     const title=dialog.querySelector<HTMLElement>('#rewardTitle')!,body=dialog.querySelector<HTMLElement>('#rewardDescription')!,choices=dialog.querySelector<HTMLElement>('#rewardChoices')!;
-    title.textContent='함께할 정령';body.textContent=replacing?`슬롯 3칸이 모두 찼어요. 고르면 지금 쓰는 정령 ${replacing} 자리에 들어옵니다.`:'정령 하나를 골라 함께 걸어가세요.';
+    title.textContent='함께할 정령';body.textContent=replacing?`슬롯이 모두 찼어요. 고르면 지금 쓰는 정령 ${replacing} 자리에 들어옵니다.`:'정령 하나를 골라 함께 걸어가세요.';
     choices.replaceChildren();
     for(const element of elements){
       const button=document.createElement('button');button.type='button';button.className='spirit-choice';button.dataset.element=element;
@@ -152,8 +152,8 @@ export class Ui {
     q('#spiritSummary').hidden=!active||state.mode!=='play';
     for(const key of ['q','w','e','r'] as const){
       const button=q<HTMLButtonElement>(`#skills [data-skill="${key}"]`),spec=active?SKILLS[active.element][key]:null;
-      const cd=active?.cooldowns[key]??0;button.disabled=!active||state.blocked||cd>0||(!state.infiniteEnergy&&state.energy<(spec?.cost??0))||(key==='r'&&active.tier<2);
-      const locked=key==='r'&&!!active&&active.tier<2,ratio=locked?1:spec?Math.min(1,cd/spec.cd):0;
+      const cd=active?.cooldowns[key]??0;button.disabled=!active||state.blocked||cd>0||(!state.infiniteEnergy&&state.energy<(spec?.cost??0))||(key==='r'&&active.tier<3);
+      const locked=key==='r'&&!!active&&active.tier<3,ratio=locked?1:spec?Math.min(1,cd/spec.cd):0;
       button.dataset.cooldown=locked?'잠김':cd>0?String(Math.ceil(cd)):'';
       button.style.setProperty('--cd',String(ratio));
       const chip=q(`#statusCds [data-cd="${key}"]`);chip.textContent=cd>0?String(Math.ceil(cd)):key.toUpperCase();chip.classList.toggle('is-wait',cd>0||locked);

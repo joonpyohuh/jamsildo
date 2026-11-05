@@ -25,7 +25,7 @@ const play=(page,boss=false)=>page.evaluate(async boss=>{
  const g=window.__jamsildo,{newSpirit}=await import('/src/game/campaign.ts');
  g.openingSeen=true;g.opening=null;g.ui.showCine(false);g.cineSkip?.();g.debugStage(3);g.talk=null;g.ui.hideTalk();
  g.enterRoom(boss?g.stage.boss:g.stage.rooms.find(r=>r.kind==='normal'),null);g.talk=null;g.ui.hideTalk();g.mode='play';g.attackUnlocked=true;g.cheats.health=true;g.cheats.energy=true;
- g.equipped.length=0;for(const el of ['fire','water']){const s=newSpirit(el);s.tier=2;g.equipped.push(s);g.acquired.add(el);}g.hasSpirit=true;g.comboHinted=true;g.skillHinted=true;
+ g.equipped.length=0;for(const el of ['fire','water']){const s=newSpirit(el);s.tier=3;g.equipped.push(s);g.acquired.add(el);}g.hasSpirit=true;g.comboHinted=true;g.skillHinted=true;
  Object.assign(g.player,{x:320,y:190,tx:320,ty:190,moving:false});
 },boss);
 const rect=(page,sel)=>page.evaluate(sel=>{const e=document.querySelector(sel);if(!e)return null;const r=e.getBoundingClientRect();return{x:r.x,y:r.y,w:r.width,h:r.height,shown:r.width>0&&getComputedStyle(e).visibility!=='hidden'};},sel);

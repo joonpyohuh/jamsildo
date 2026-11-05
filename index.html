@@ -901,6 +901,11 @@
       <form class="admin-filters" id="adminSearch"><input id="playerSearch" aria-label="플레이어 아이디 검색" placeholder="아이디 검색" maxlength="20" pattern="[A-Za-z0-9_]*" /><select id="playerOrder" aria-label="플레이어 정렬"><option value="created_at">최근 가입</option><option value="last_seen">최근 접속</option><option value="play_seconds">플레이 시간</option><option value="max_stage">최고 스테이지</option></select><button type="submit">조회</button><button id="refreshAdmin" type="button">새로고침</button></form>
       <div class="table-scroll"><table><thead><tr><th>아이디 / 상태</th><th>플레이 시간</th><th>현재 / 최고</th><th>가입일 (한국)</th><th>최근 접속 (한국)</th><th>계정 관리</th></tr></thead><tbody id="playerRows"></tbody></table></div>
       <div class="admin-paging"><button id="prevPlayers" type="button">이전</button><span id="playerPage"></span><button id="nextPlayers" type="button">다음</button></div>
+      <section id="runsSection" hidden>
+        <div class="runs-heading"><h3>플레이 분석</h3><button id="exportRuns" type="button">CSV 내보내기</button></div>
+        <p><small>한 판 단위 기록입니다. 쓰러져 다시 도전하면 같은 런으로 묶입니다. 10분 넘게 소식이 없으면 이탈로 봅니다. 관리자 계정은 제외합니다.</small></p>
+        <div id="runsData"></div>
+      </section>
       <section id="guestSection" hidden>
         <h3>게스트</h3>
         <p><small>브라우저 단위 익명 기록입니다. 같은 사람도 기기가 다르거나 기록을 지우면 새 게스트로 잡힙니다.</small></p>

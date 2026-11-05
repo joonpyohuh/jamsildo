@@ -66,7 +66,7 @@ const overview = { stats: { players: 0, today: 0, online: 0, active_today: 0, pl
       g.hurtPlayer(p.x, p.y - 10, 100000, true);
       if (p.hp !== p.maxHp || p.armor !== 2 || p.skillShield !== 3 || g.mode !== 'play') throw Error('infinite health consumed HP or shields');
       p.maxEnergy = p.energy = 1;
-      g.equipSpirit('fire'); const slot = g.equipped[g.activeSpirit]; slot.tier = 2;
+      g.equipSpirit('fire'); const slot = g.equipped[g.activeSpirit]; slot.tier = 3;
       g.castSkill('r');
       if (p.energy !== 1 || slot.cooldowns.r !== SKILLS.fire.r.cd) throw Error('infinite energy must bypass costs but preserve cooldowns');
       const random = Math.random;

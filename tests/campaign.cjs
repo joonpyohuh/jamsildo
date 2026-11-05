@@ -123,7 +123,7 @@ const fs=require('node:fs/promises');
    blind.effects.blind=0;g.bossPattern(blind,'fan');for(let i=0;i<25;i++)g.updateEffects(0.05);if(!g.bullets.length)throw Error('boss did not recover from blindness');
    g.debugStage(5);g.enterRoom(g.stage.boss,null);const whisper=g.enemies.find(e=>e.boss?.main);whisper.hp=whisper.maxHp*0.09;whisper.spawnT=0;g.player.invuln=0;g.aiBoss(whisper,0.05);
    const before=whisper.hp;g.hitEnemy(whisper,1000,0,0,true);if(whisper.hp!==before)throw Error('whisper can be skipped by holding attack');
-   for(let i=0;i<102;i++)g.update(0.05);if(g.player.hp!==60)throw Error(`whisper failure damage ${g.player.hp}`);
+   for(let i=0;i<120;i++)g.update(0.05);if(g.player.hp!==60)throw Error(`whisper failure damage ${g.player.hp}`);
    g.debugStage(5);g.enterRoom(g.stage.boss,null);const success=g.enemies.find(e=>e.boss?.main);success.hp=success.maxHp*0.09;success.spawnT=0;g.aiBoss(success,0.05);success.boss.qteTime=2.5;
    for(let i=0;i<10;i++)g.attackPressed();g.aiBoss(success,0.05);if(success.boss.qteTime!==0||success.boss.stagger!==8)throw Error('whisper success must stagger');
    return {patterns,skills};

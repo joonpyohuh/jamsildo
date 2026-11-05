@@ -36,6 +36,8 @@
 .account-dialog th,.account-dialog td { border-bottom:1px solid #302b32; padding:12px 10px; text-align:left; }
 .account-dialog th { color:#9c958d; font-weight:400; }
 .online-dot { color:#accc9b; }
+.runs-heading { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+#runsData h4 { margin:16px 0 6px; font-size:12px; font-weight:400; color:#e0b57a; }
 .admin-paging { justify-content:center; margin-top:12px; }
 .stage-grid { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:8px; }
 .stage-grid button { text-align:left; padding:12px; }
