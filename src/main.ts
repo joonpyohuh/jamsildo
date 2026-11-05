@@ -5,6 +5,7 @@ import { Ui } from './game/ui';
 import { loadArt } from './game/assets';
 import { SKILLS, SKILL_DESC, SPIRIT_NAMES, SPIRIT_ROLES } from './game/campaign';
 import { ELEMENT } from './game/config';
+import type { FormId } from './game/forms';
 import { Accounts } from './accounts';
 import './accounts.css';
 
@@ -38,13 +39,16 @@ const continueButton=must<HTMLButtonElement>('#continueGame');
 const guestButton=must<HTMLButtonElement>('#startGuest');
 const comboButton=must<HTMLButtonElement>('#comboSkill');
 const dashBtn=must<HTMLButtonElement>('#dash');
+const senaUlt=must<HTMLButtonElement>('#senaUlt');
+const weaponBar=must<HTMLDivElement>('#weaponBar');
+const augmentDialog=must<HTMLDialogElement>('#augmentDialog');
 const touchZone=must<HTMLDivElement>('#touchZone');
 const topBar=must<HTMLElement>('#topBar');
 const statusBar=must<HTMLElement>('#statusBar');
 const pauseToggle=must<HTMLButtonElement>('#pauseToggle');
 const layoutEdit=must<HTMLDivElement>('#layoutEdit');
-const itemDialog=must<HTMLDialogElement>('#itemDialog');
-const itemsToggle=must<HTMLButtonElement>('#itemsToggle');
+const artifactDialog=must<HTMLDialogElement>('#artifactDialog');
+const artifactsToggle=must<HTMLButtonElement>('#artifactsToggle');
 
 canvas.width = VIEW_W;
 canvas.height = VIEW_H;
@@ -93,19 +97,20 @@ settingsDialog.addEventListener('close', () => {
   if (game.mode !== 'title') canvas.focus({ preventScroll: true });
 });
 rewardDialog.addEventListener('close',()=>canvas.focus({preventScroll:true}));
+augmentDialog.addEventListener('close',()=>canvas.focus({preventScroll:true}));
 /** 아이템 창: 다른 창이 떠 있거나 플레이 중이 아니면 열지 않는다. 열려 있는 동안 게임은 멈춘다. */
-function toggleItems(): void {
-  if (itemDialog.open) { itemDialog.close(); return; }
+function toggleArtifacts(): void {
+  if (artifactDialog.open) { artifactDialog.close(); return; }
   if (game.mode !== 'play' || accounts.paused) return;
   resetInput();
-  ui.renderItems(game.inventory);
-  itemDialog.showModal();
+  ui.renderArtifacts(game.inventory);
+  artifactDialog.showModal();
   // 닫기 버튼 대신 창에 포커스: 열자마자 강조 테두리가 뜨지 않게
-  itemDialog.focus();
+  artifactDialog.focus();
 }
-itemsToggle.addEventListener('click', toggleItems);
-must<HTMLButtonElement>('#itemClose').addEventListener('click', () => itemDialog.close());
-itemDialog.addEventListener('close', () => canvas.focus({ preventScroll: true }));
+artifactsToggle.addEventListener('click', toggleArtifacts);
+must<HTMLButtonElement>('#artifactClose').addEventListener('click', () => artifactDialog.close());
+artifactDialog.addEventListener('close', () => canvas.focus({ preventScroll: true }));
 continueButton.addEventListener('click',()=>{if(assetsReady){sfx.unlock();game.resumeRun();}});
 startButton.addEventListener('click', () => {
   if(!assetsReady)return;
@@ -233,7 +238,7 @@ function layoutControls(W: number, H: number, safe: Box, stage: Box): void {
   const skillButtons = skillPad.querySelectorAll<HTMLButtonElement>('button[data-skill]');
   if (isPortrait()) { layoutPortrait(W, H, safe, stage.b + STATUS_ROW + 6); return; }
   if (!touchSeen) {
-    for (const el of [attackBtn, joystick, swapBtn, comboButton, ...skillButtons]) { el.style.left = el.style.top = ''; el.classList.remove('is-over'); }
+    for (const el of [attackBtn, joystick, swapBtn, comboButton, dashBtn, senaUlt, ...skillButtons]) { el.style.left = el.style.top = ''; el.classList.remove('is-over'); }
     return;
   }
   // 버튼이 화면 밖으로 나가거나 노치·홈바에 닿지 않게 안쪽으로 민다
@@ -262,7 +267,11 @@ function layoutControls(W: number, H: number, safe: Box, stage: Box): void {
   const comboAngle = COMBO_ANGLE * Math.PI / 180;
   place(comboButton, ax + Math.cos(comboAngle) * swapDistance, ay - Math.sin(comboAngle) * swapDistance, SKILL_SIZE);
   const jx = roomLeft >= STICK_SIZE + 16 ? safe.l + roomLeft / 2 : Math.max(W * 0.1, safe.l + 8) + STICK_SIZE / 2;
-  place(joystick, jx, H - Math.max(H * 0.18, safe.b + 8) - STICK_SIZE / 2, STICK_SIZE);
+  const jy = H - Math.max(H * 0.18, safe.b + 8) - STICK_SIZE / 2;
+  place(joystick, jx, jy, STICK_SIZE);
+  // 대시·궁극기는 왼손: 조이스틱 옆과 위
+  place(dashBtn, jx + STICK_SIZE / 2 + 36, jy + 20, 56);
+  place(senaUlt, jx, jy - STICK_SIZE / 2 - 30, 44);
 }
 
 /* ── 모바일: 전체화면만 시도한다. 방향은 기기를 따른다. 안 되는 브라우저는 조용히 넘어간다. ── */
@@ -279,7 +288,7 @@ const IN_PROGRESS = ['opening', 'talk', 'play', 'slide', 'embrace'];
 function openPause(): void {
   if (!IN_PROGRESS.includes(game.mode) || accounts.paused) return;
   resetInput();
-  must<HTMLButtonElement>('#pauseItems').hidden = game.mode !== 'play';
+  must<HTMLButtonElement>('#pauseArtifacts').hidden = game.mode !== 'play';
   pauseOverlay.showModal();
 }
 let shownPortrait = isPortrait();
@@ -296,7 +305,7 @@ must<HTMLButtonElement>('#pauseResume').addEventListener('click', () => {
   sfx.unlock();
   void enterFullscreen();
 });
-must<HTMLButtonElement>('#pauseItems').addEventListener('click', () => { pauseOverlay.close(); toggleItems(); });
+must<HTMLButtonElement>('#pauseArtifacts').addEventListener('click', () => { pauseOverlay.close(); toggleArtifacts(); });
 must<HTMLButtonElement>('#pauseSettings').addEventListener('click', () => { pauseOverlay.close(); openSettings(); });
 must<HTMLButtonElement>('#pauseAccount').addEventListener('click', () => { pauseOverlay.close(); must<HTMLButtonElement>('#accountToggle').click(); });
 pauseToggle.addEventListener('click', openPause);
@@ -304,7 +313,7 @@ pauseToggle.addEventListener('click', openPause);
 /* ── 버튼 배치 편집: 설정에서 들어가 끌어서 옮긴다 ── */
 let editing = false;
 let dragging: { el: HTMLElement; id: number; x: number; y: number } | null = null;
-const editableButtons = (): HTMLElement[] => [attackBtn, swapBtn, comboButton, ...skillPad.querySelectorAll<HTMLButtonElement>('button[data-skill]'), ...(isPortrait() ? [dashBtn] : [joystick])];
+const editableButtons = (): HTMLElement[] => [attackBtn, swapBtn, comboButton, dashBtn, ...skillPad.querySelectorAll<HTMLButtonElement>('button[data-skill]'), ...(isPortrait() ? [] : [joystick, senaUlt])];
 function setEditing(on: boolean): void {
   editing = on; dragging = null;
   layoutEdit.hidden = !on;
@@ -414,6 +423,7 @@ uiEl.addEventListener('pointerdown', (e) => {
 
 /* ── 키보드: 방향키 이동, Space 공격, QWER 정령 스킬, Enter 진행 ── */
 const ATTACK_KEYS = new Set(['Space', 'KeyJ', 'KeyZ']);
+const WEAPON_KEYS: Readonly<Record<string, FormId>> = { Digit1: 'dagger', Digit2: 'sword', Digit3: 'bow', Digit4: 'knuckle' };
 const SKILL_KEYS: Readonly<Record<string, SkillKey>> = { KeyQ: 'q', KeyW: 'w', KeyE: 'e', KeyR: 'r' };
 const ARROW_KEYS: Readonly<Record<string, readonly [number, number]>> = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
 const heldArrows = new Set<string>();
@@ -434,7 +444,7 @@ function applyArrows(): void {
 
 window.addEventListener('keydown', (e) => {
   // 창이 열려 있어도 I로 닫을 수 있게 아래 일시정지 검사보다 먼저 본다
-  if (e.code === 'KeyI' && !e.repeat && assetsReady && !(e.target instanceof HTMLInputElement)) { e.preventDefault(); toggleItems(); return; }
+  if (e.code === 'KeyI' && !e.repeat && assetsReady && !(e.target instanceof HTMLInputElement)) { e.preventDefault(); toggleArtifacts(); return; }
   if (settingsDialog.open || rewardDialog.open || accounts.paused || e.target instanceof HTMLInputElement || !assetsReady) return;
   // 버튼에 포커스가 남아 있으면 키가 전부 버튼으로 새던 버그: 게임 중에는 포커스를 캔버스로 돌리고 키를 게임이 받는다.
   if (e.target instanceof HTMLButtonElement) {
@@ -449,7 +459,9 @@ window.addEventListener('keydown', (e) => {
     return;
   }
   if (ARROW_KEYS[e.code]) { e.preventDefault(); heldArrows.add(e.code); return; }
-  if (e.code === 'KeyF') { e.preventDefault(); if (!e.repeat) { sfx.unlock(); game.castCombo(); } return; }
+  if (e.code === 'KeyF' || e.code === 'KeyG') { e.preventDefault(); if (!e.repeat) { sfx.unlock(); if (e.code === 'KeyF') game.castUlt(); else game.castCombo(); } return; }
+  const weapon = WEAPON_KEYS[e.code];
+  if (weapon) { e.preventDefault(); game.selectWeapon(weapon); return; }
   const skill = SKILL_KEYS[e.code];
   const isAttack = ATTACK_KEYS.has(e.code);
   if (!skill && !isAttack && e.code !== 'Enter') return;
@@ -475,6 +487,7 @@ window.addEventListener('keydown', (e) => {
     return;
   }
   if (skill) input.skillQueue.push(skill);
+  else if (e.code === 'Space') game.spacePressed();
   else if (isAttack) {game.attackPressed();input.attackHeld = true;}
 });
 window.addEventListener('keyup', (e) => {
@@ -610,6 +623,12 @@ skillPad.addEventListener('pointercancel',e=>{skillPointers.delete(e.pointerId);
 swapBtn.addEventListener('pointerdown',e=>{e.preventDefault();sfx.unlock();game.cycleSpirit();});
 comboButton.addEventListener('pointerdown',e=>{e.preventDefault();sfx.unlock();game.castCombo();});
 dashBtn.addEventListener('pointerdown',e=>{e.preventDefault();sfx.unlock();game.dash();});
+senaUlt.addEventListener('pointerdown',e=>{e.preventDefault();sfx.unlock();game.castUlt();});
+must('#statusUlt').addEventListener('pointerdown',e=>{e.preventDefault();sfx.unlock();game.castUlt();});
+weaponBar.addEventListener('pointerdown',e=>{
+  const form=(e.target as Element).closest<HTMLElement>('[data-form]')?.dataset.form as FormId|undefined;
+  if(form){e.preventDefault();sfx.unlock();game.selectWeapon(form);}
+});
 must('#spiritSlots').addEventListener('click',e=>{
   const button=(e.target as Element).closest<HTMLButtonElement>('button[data-spirit]');
   if(button){game.cycleSpirit(Number(button.dataset.spirit));canvas.focus({preventScroll:true});}
@@ -652,7 +671,7 @@ document.addEventListener('pointermove', e => {
     const combo = game.comboHud;
     if (!combo) { hideTip(); return; }
     tipFor = null;
-    must('#skillTipName').textContent = `F · ${combo.name}`;
+    must('#skillTipName').textContent = `G · ${combo.name}`;
     must('#skillTipMeta').textContent = `${combo.pair} · 기력 ${combo.cost}`;
     must('#skillTipText').textContent = `${combo.text}\n\n두 정령이 모두 중급이고 R이 준비돼 있어야 한다. 쓰면 둘의 R이 함께 돈다.`;
     skillTip.classList.toggle('is-locked', !combo.grown);
@@ -704,7 +723,9 @@ function frame(now: number): void {
   skillPad.hidden = !((game.hasSpirit && game.mode === 'play') || editing);
   swapBtn.hidden = !(touchSeen && ((game.hasSpirit && game.mode === 'play') || editing));
   attackBtn.hidden = !(touchSeen && ((game.attackUnlocked && moving) || editing));
-  dashBtn.hidden = !(portrait && (game.mode === 'play' || editing));
+  dashBtn.hidden = !(touchSeen && (game.mode === 'play' || editing));
+  senaUlt.hidden = !(touchSeen && !portrait && (game.mode === 'play' || editing));
+  weaponBar.hidden = game.mode !== 'play';
   dashBtn.disabled = game.dashRatio > 0;
   dashBtn.style.setProperty('--cd', String(game.dashRatio));
   touchZone.hidden = !(portrait && moving);
@@ -718,7 +739,7 @@ function frame(now: number): void {
   settingsToggle.hidden = !inGame;
   topBar.hidden = pauseToggle.hidden = statusBar.hidden = !(portrait && inGame);
   editButton.hidden = !touchSeen;
-  itemsToggle.hidden = !inGame;
+  artifactsToggle.hidden = !inGame;
   must<HTMLElement>('#stageInfo').hidden=!inGame;
   requestAnimationFrame(frame);
 }

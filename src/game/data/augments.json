@@ -1,0 +1,28 @@
+{
+  "gradeOdds": { "silver": 75, "gold": 22, "prism": 3 },
+  "pityRooms": 5,
+  "cards": {
+    "silver": [
+      { "id": "atk1", "name": "공격력 +1", "stat": "attackFlat", "value": 1 },
+      { "id": "hp5", "name": "최대 HP +5", "stat": "maxHp", "value": 5 },
+      { "id": "regen1", "name": "기력 회복 속도 +1", "stat": "energyRegen", "value": 1 },
+      { "id": "move3", "name": "이동속도 +3%", "stat": "moveSpeed", "value": 0.03 },
+      { "id": "crit2", "name": "치명타 확률 +2%", "stat": "critChance", "value": 0.02 }
+    ],
+    "gold": [
+      { "id": "atk3", "name": "공격력 +3", "stat": "attackFlat", "value": 3 },
+      { "id": "hp15", "name": "최대 HP +15", "stat": "maxHp", "value": 15 },
+      { "id": "regen3", "name": "기력 회복 속도 +3", "stat": "energyRegen", "value": 3 },
+      { "id": "cd5", "name": "스킬 쿨타임 -5%", "stat": "cooldown", "value": 0.05 },
+      { "id": "crit5", "name": "치명타 확률 +5%", "stat": "critChance", "value": 0.05 },
+      { "id": "dash15", "name": "대시 쿨타임 -15%", "stat": "dashCooldown", "value": 0.15 }
+    ],
+    "prism": [
+      { "id": "energy10", "name": "최대 기력 +10", "stat": "maxEnergy", "value": 10 },
+      { "id": "atk10p", "name": "공격력 +10%", "stat": "attackPct", "value": 0.1 },
+      { "id": "critdmg50", "name": "치명타 피해 +50%", "stat": "critDamage", "value": 0.5 },
+      { "id": "form", "name": "세나 형태 강화", "stat": "formBoost", "value": 1 },
+      { "id": "stand", "name": "쓰러짐 1회 버티기", "stat": "lastStand", "value": 1 }
+    ]
+  }
+}

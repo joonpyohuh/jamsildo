@@ -45,6 +45,9 @@ export interface Room {
   rewarded?: boolean;
   /** 상점에서 이미 산 품목 */
   bought?: string[];
+  /** 상점 진열, 하드방 보상: 정해지면 다시 들어와도 같다 */
+  goods?: string[];
+  prize?: string;
 }
 
 export interface Stage {

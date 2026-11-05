@@ -477,25 +477,25 @@
       .spirit-choice:disabled { opacity: 0.5; }
       .spirit-choice.shop-good { grid-template-columns: 1fr; gap: 3px; min-height: 60px; }
       /* 아이템 창: 위는 능력치 표, 아래는 가진 것. 카드 없이 선으로만 나눈다. */
-      #itemDialog { width: min(420px, calc(100% - 32px)); max-height: calc(100% - 32px); padding: 22px; border: 1px solid #5c626d; background: #101216; color: var(--pale); font: 14px Galmuri11, monospace; }
-      #itemDialog:focus { outline: none; }
-      #itemDialog::backdrop { background: #000b; }
-      .item-heading { display: flex; align-items: baseline; justify-content: space-between; }
-      #itemTitle { margin: 0; font-size: 22px; font-weight: 400; }
-      #itemClose { min-height: 32px; padding: 0 0 0 16px; border: 0; background: transparent; color: var(--dim); font: 11px Galmuri9, monospace; letter-spacing: 0.02em; cursor: pointer; }
-      #itemClose:hover { color: var(--pale); }
-      #itemStats { display: grid; grid-template-columns: 1fr 1fr; gap: 0 24px; margin: 14px 0 0; padding: 10px 0; border-block: 1px solid var(--line); font: 11px/1.9 Galmuri9, monospace; letter-spacing: 0.02em; }
-      #itemStats div { display: flex; justify-content: space-between; }
-      #itemStats dt { color: var(--dim); }
-      #itemStats dd { margin: 0; }
-      #itemList { display: grid; gap: 12px; margin: 14px 0 0; padding: 0; list-style: none; }
-      #itemList li { display: grid; gap: 2px; }
-      #itemList strong { font: 400 13px/1.4 Galmuri11, monospace; color: var(--accent); }
-      #itemList span { font: 11px/1.65 Galmuri11, monospace; color: #cfd2d8; word-break: keep-all; }
-      @media (max-height: 500px) { #itemDialog { width: min(520px, calc(100% - 32px)); padding: 14px 18px; } #itemStats { margin-top: 8px; padding: 6px 0; } #itemList { grid-template-columns: 1fr 1fr; gap: 8px 20px; margin-top: 8px; } }
-      #itemList .is-empty { font: 11px/1.65 Galmuri11, monospace; color: var(--dim); word-break: keep-all; }
-      #itemsToggle { position: fixed; top: calc(var(--st) + 62px); left: calc(var(--sl) + 54px); min-height: 32px; padding: 4px 10px; border: 1px solid var(--line); border-radius: 0; background: #08090bbd; color: var(--pale); font: 11px Galmuri11, monospace; cursor: pointer; }
-      @media (min-height: 560px) { #itemsToggle { top: calc(var(--st) + 72px); } }
+      #artifactDialog { width: min(420px, calc(100% - 32px)); max-height: calc(100% - 32px); padding: 22px; border: 1px solid #5c626d; background: #101216; color: var(--pale); font: 14px Galmuri11, monospace; }
+      #artifactDialog:focus { outline: none; }
+      #artifactDialog::backdrop { background: #000b; }
+      .artifact-heading { display: flex; align-items: baseline; justify-content: space-between; }
+      #artifactTitle { margin: 0; font-size: 22px; font-weight: 400; }
+      #artifactClose { min-height: 32px; padding: 0 0 0 16px; border: 0; background: transparent; color: var(--dim); font: 11px Galmuri9, monospace; letter-spacing: 0.02em; cursor: pointer; }
+      #artifactClose:hover { color: var(--pale); }
+      #artifactStats { display: grid; grid-template-columns: 1fr 1fr; gap: 0 24px; margin: 14px 0 0; padding: 10px 0; border-block: 1px solid var(--line); font: 11px/1.9 Galmuri9, monospace; letter-spacing: 0.02em; }
+      #artifactStats div { display: flex; justify-content: space-between; }
+      #artifactStats dt { color: var(--dim); }
+      #artifactStats dd { margin: 0; }
+      #artifactList { display: grid; gap: 12px; margin: 14px 0 0; padding: 0; list-style: none; }
+      #artifactList li { display: grid; gap: 2px; }
+      #artifactList strong { font: 400 13px/1.4 Galmuri11, monospace; color: var(--accent); }
+      #artifactList span { font: 11px/1.65 Galmuri11, monospace; color: #cfd2d8; word-break: keep-all; }
+      @media (max-height: 500px) { #artifactDialog { width: min(520px, calc(100% - 32px)); padding: 14px 18px; } #artifactStats { margin-top: 8px; padding: 6px 0; } #artifactList { grid-template-columns: 1fr 1fr; gap: 8px 20px; margin-top: 8px; } }
+      #artifactList .is-empty { font: 11px/1.65 Galmuri11, monospace; color: var(--dim); word-break: keep-all; }
+      #artifactsToggle { position: fixed; top: calc(var(--st) + 62px); left: calc(var(--sl) + 54px); min-height: 32px; padding: 4px 10px; border: 1px solid var(--line); border-radius: 0; background: #08090bbd; color: var(--pale); font: 11px Galmuri11, monospace; cursor: pointer; }
+      @media (min-height: 560px) { #artifactsToggle { top: calc(var(--st) + 72px); } }
       /* 컷인: 세나는 왼쪽(캔버스), 글자는 오른쪽. 세상이 멈춘 동안 다른 HUD는 전부 물러난다. */
       #superCut { position: absolute; left: calc(var(--px) * 262); top: calc(var(--px) * 138); width: calc(var(--px) * 340); }
       #superCut[hidden] { display: none; }
@@ -503,7 +503,7 @@
       #superLabel { font-family: Galmuri9, monospace; font-size: calc(var(--px) * 10); line-height: calc(var(--px) * 14); letter-spacing: var(--px); color: var(--glow); }
       #superName { margin-top: calc(var(--px) * 6) !important; padding-bottom: calc(var(--px) * 10); border-bottom: 1px solid var(--glow); font-family: Galmuri11, monospace; font-size: calc(var(--px) * 33); line-height: calc(var(--px) * 40); letter-spacing: calc(var(--px) * 0.5); color: #eef0f3; white-space: nowrap; }
       #superLine { margin-top: calc(var(--px) * 10) !important; font-family: Galmuri9, monospace; font-size: calc(var(--px) * 10); line-height: calc(var(--px) * 16); color: var(--dim); word-break: keep-all; }
-      html.super-cut #statusBar, html.super-cut #pauseToggle, html.super-cut #dash, html.super-cut #attack, html.super-cut #swapSpirit, html.super-cut #skills, html.super-cut #spiritSlots, html.super-cut #spiritSummary, html.super-cut #energyHud, html.super-cut #minimap, html.super-cut #stageInfo, html.super-cut #settingsToggle, html.super-cut #itemsToggle, html.super-cut #accountBar, html.super-cut #healthHud, html.super-cut #bossHud, html.super-cut #enemyInfo, html.super-cut #hint, html.super-cut #center, html.super-cut #roomLabel, html.super-cut #pickHint, html.super-cut #formTag, html.super-cut #callBubble { visibility: hidden; }
+      html.super-cut #weaponBar, html.super-cut #senaUlt, html.super-cut #statusBar, html.super-cut #pauseToggle, html.super-cut #dash, html.super-cut #attack, html.super-cut #swapSpirit, html.super-cut #skills, html.super-cut #spiritSlots, html.super-cut #spiritSummary, html.super-cut #energyHud, html.super-cut #minimap, html.super-cut #stageInfo, html.super-cut #settingsToggle, html.super-cut #artifactsToggle, html.super-cut #accountBar, html.super-cut #healthHud, html.super-cut #bossHud, html.super-cut #enemyInfo, html.super-cut #hint, html.super-cut #center, html.super-cut #roomLabel, html.super-cut #pickHint, html.super-cut #formTag, html.super-cut #callBubble { visibility: hidden; }
       /* 바닥 아이템 이름표: 게임 픽셀 격자에 맞춘다 */
       #pickHint { position: absolute; transform: translate(-50%, -100%); margin: 0; padding: 0 calc(var(--px) * 3); background: #08090bbd; font-family: Galmuri9, monospace; font-size: calc(var(--px) * 10); line-height: calc(var(--px) * 12); color: var(--dim); white-space: nowrap; }
       #pickHint[hidden] { display: none; }
@@ -635,6 +635,56 @@
       #skillTipText { white-space: pre-line; margin: 6px 0 0; font: 11px/1.65 Galmuri11, monospace; color: #cfd2d8; word-break: keep-all; }
       #skillTip.is-locked #skillTipText { color: #e6a99f; }
 
+      /* ═══ 무기 선택 ═══ */
+      #weaponBar { position: fixed; z-index: 5; left: 50%; transform: translateX(-50%); bottom: calc(var(--sb) + 6px); display: flex; gap: 4px; }
+      #weaponBar[hidden] { display: none; }
+      #weaponBar button { min-width: 48px; min-height: 28px; padding: 2px 6px; border: 1px solid #5c626d; background: #08090bbd; color: var(--dim); font: 10px Galmuri9, monospace; touch-action: none; cursor: pointer; }
+      #weaponBar button.is-active { border-color: #dfe6f0; color: #dfe6f0; }
+      html.portrait #weaponBar { left: calc(var(--sa-l) + 8px); transform: none; bottom: auto; top: calc(var(--ct) + 6px); }
+      html.portrait #weaponBar button { min-height: 36px; }
+      #senaUlt { position: fixed; right: auto; bottom: auto; margin: 0; z-index: 5; width: 44px; height: 44px; padding: 0; border: 2px solid #dfe6f0; border-radius: 50%; background: #08090b8c; color: #dfe6f0; font: 10px Galmuri9, monospace; touch-action: none; }
+      #senaUlt[hidden] { display: none; }
+      #senaUlt:disabled { opacity: 0.4; }
+
+      /* ═══ 증강: 등급 테두리, 뒷면에서 뒤집힘 ═══ */
+      #augmentDialog { width: min(640px, calc(100% - 32px)); max-height: calc(100% - 32px); padding: 22px; border: 1px solid #5c626d; background: #101216; color: var(--pale); font: 14px Galmuri11, monospace; overflow: auto; }
+      #augmentDialog::backdrop { background: #000b; }
+      #augmentDialog[data-grade="prism"]::backdrop { animation: prismWash 1.2s 0.3s both; }
+      #augmentTitle { margin: 0 0 14px; font-size: 18px; font-weight: 400; text-align: center; }
+      #augmentCards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+      .aug-card { min-height: 120px; padding: 12px; border: 2px solid #aeb4bf; background: #17191e; color: var(--pale); font: 13px/1.5 Galmuri11, monospace; word-break: keep-all; cursor: pointer; animation: cardFlip 0.45s steps(6, end) both; }
+      .aug-card.is-gold { border-color: var(--accent); box-shadow: 0 0 10px #e0a45866; }
+      .aug-card.is-prism { animation: cardFlip 0.45s 0.3s steps(6, end) both, prismEdge 1.6s linear infinite; }
+      @keyframes cardFlip { 0% { transform: translateY(-24px) rotateY(180deg); opacity: 0; } 40% { opacity: 1; } 100% { transform: none; opacity: 1; } }
+      @keyframes prismEdge { 0% { border-color: #ff6a6a; } 25% { border-color: #ffd84a; } 50% { border-color: #6fe08a; } 75% { border-color: #5eb0ff; } 100% { border-color: #ff6a6a; } }
+      @keyframes prismWash { 0% { background: #000b; } 40% { background: linear-gradient(90deg, #ff6a6a66, #ffd84a66, #6fe08a66, #5eb0ff66, #b88aff66); } 100% { background: #000b; } }
+      html.portrait #augmentCards { grid-template-columns: 1fr; }
+      html.portrait .aug-card { min-height: 64px; }
+
+      /* ═══ 아티팩트: 빛나지 않는다. 사연은 조용히, 저주는 가장자리부터 검게 ═══ */
+      #storyLine { position: absolute; left: 0; right: 0; bottom: calc(var(--px) * 54); margin: 0; display: grid; gap: 2px; text-align: center; font-family: Galmuri11, monospace; color: #b9bdc5; }
+      #storyLine[hidden] { display: none; }
+      #storyLine strong { font-weight: 400; font-size: 13px; color: #8f98a3; }
+      #storyLine span { font-size: 12px; word-break: keep-all; }
+      #storyLine.is-curse strong { color: #6a6870; }
+      .spirit-choice.is-curse { background: #0d0c10; border-color: #2b2a35; }
+      html.cursed #stage::after { content: ''; position: absolute; inset: 0; pointer-events: none; box-shadow: inset 0 0 calc(var(--px) * 46) #000; }
+      #codexTitle { margin: 16px 0 6px; font-size: 13px; font-weight: 400; color: var(--dim); }
+      #artifactCodex { margin: 0; padding: 0; list-style: none; display: grid; gap: 4px; font: 10px/1.6 Galmuri9, monospace; color: var(--dim); word-break: keep-all; }
+
+      /* 세나 대사: 은빛, 1.8초 / 빈사 각성: 세상이 흑백으로 */
+      #hint.is-quick.is-on { animation: hintQuick 2s steps(20, end) forwards; }
+      #hint.is-quick #hintText { color: #dfe6f0; }
+      @keyframes hintQuick { 0% { opacity: 0; } 5% { opacity: 1; } 90% { opacity: 1; } 100% { opacity: 0; } }
+      html.awaken #game { filter: grayscale(1) !important; }
+      #superCut[data-kind="card"] { left: 0; width: 100%; top: calc(var(--px) * 112); text-align: center; }
+      #superCut[data-kind="card"] #superName { border: 0; padding: 0; white-space: nowrap; }
+      #superCut[data-kind="sena"] { left: calc(var(--px) * 40); top: calc(var(--px) * 150); }
+      #superCut[data-kind="awaken"] { left: 0; width: 100%; text-align: center; top: calc(var(--px) * 160); }
+      #superCut[data-kind="awaken"] #superName { border: 0; padding: 0; }
+      #superCut[data-kind="awaken"] #superLine { font-size: calc(var(--px) * 15); line-height: 1.4; color: #dfe6f0; }
+      #superCut[data-kind="evolve"] { left: calc(var(--px) * 300); }
+
       /* ═══ 일시정지 ═══ */
       #pauseOverlay { position: fixed; inset: 0; width: 100vw; height: 100dvh; max-width: none; max-height: none; margin: 0; padding: 24px; border: 0; background: #000d; color: var(--pale); text-align: center; }
       #pauseOverlay[open] { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; }
@@ -670,7 +720,7 @@
       html.portrait #healthHud { z-index: 3; top: calc(var(--sa-t) + 14px); left: calc(var(--sa-l) + 8px); width: 124px; }
       html.portrait #energyHud { z-index: 3; top: calc(var(--sa-t) + 8px); left: calc(var(--sa-l) + 140px); right: calc(var(--sa-r) + 60px); width: auto; background: none; white-space: nowrap; overflow: hidden; }
       html.portrait #energyBar { height: 4px; margin-top: 3px; }
-      html.portrait #settingsToggle, html.portrait #itemsToggle, html.portrait #stageInfo { display: none; }
+      html.portrait #settingsToggle, html.portrait #artifactsToggle, html.portrait #stageInfo { display: none; }
       html.portrait.in-game #accountBar { display: none; }
       html.portrait #bossHud:not([hidden]) { top: calc(var(--sa-t) + 46px); left: calc(var(--sa-l) + 8px); right: calc(var(--sa-r) + 8px); width: auto; height: 26px; padding: 2px 6px; transform: none; display: grid; grid-template-columns: auto 1fr; gap: 8px; align-items: center; }
       html.portrait #bossHud #bossName { margin: 0; font-size: 11px; white-space: nowrap; }
@@ -683,6 +733,7 @@
       html.portrait #minimap { z-index: 3; top: calc(var(--ct) - 38px); right: calc(var(--sa-r) + 8px); width: 62px; height: 36px; padding: 2px; overflow: hidden; }
       html.portrait #mapRooms { transform: scale(0.45); transform-origin: top left; }
       html.portrait .map-key { display: none; }
+      html.portrait #statusUlt { cursor: pointer; }
       html.portrait #attack { width: 76px; height: 76px; font-size: 16px; }
       html.portrait #skills button { width: 52px; height: 52px; }
       html.portrait #swapSpirit { width: 40px; height: 40px; }
@@ -690,7 +741,7 @@
       html.portrait #joystickKnob { width: 40px; height: 40px; }
       html.portrait #joystickLabel { display: none; }
       /* 눈에 보이는 크기보다 터치 영역을 10px 넓힌다 */
-      html.portrait #attack::before, html.portrait #skills button::before, html.portrait #swapSpirit::before, html.portrait #dash::before { content: ''; position: absolute; inset: -10px; border-radius: 50%; }
+      html.portrait #attack::before, html.portrait #skills button::before, html.portrait #swapSpirit::before, html.portrait #dash::before, html.portrait #weaponBar button::before { content: ''; position: absolute; inset: -10px; border-radius: 50%; }
       /* 쿨타임: 버튼 위 어두운 원형 게이지 + 남은 초 */
       html.portrait #skills button[data-cooldown]:not([data-cooldown=""])::after, html.portrait #dash::after { content: attr(data-cooldown); position: absolute; inset: 0; display: grid; place-items: center; border-radius: 50%; background: conic-gradient(#08090be6 calc(var(--cd, 0) * 360deg), #08090b40 0); color: #c9ccd3; font-size: 12px; }
       html.portrait #dash:not(:disabled)::after { content: none; }
@@ -798,6 +849,7 @@
         <p id="roomLabel" hidden></p>
         <p id="pickHint" hidden></p>
         <div id="superCut" hidden><p id="superLabel"></p><p id="superName"></p><p id="superLine"></p></div>
+        <p id="storyLine" hidden><strong></strong><span></span></p>
         <aside id="enemyInfo" hidden aria-label="적 정보"><strong id="enemyInfoName"></strong><span id="enemyInfoMeta"></span><span id="enemyInfoBar"><span id="enemyInfoFill"></span></span><p id="enemyInfoText"></p></aside>
       </div>
     </div>
@@ -808,7 +860,7 @@
     </div>
     <canvas id="healthHud" width="124" height="16" hidden aria-label="체력"></canvas>
     <button id="settingsToggle" type="button" hidden aria-label="게임 설정 열기">설정</button>
-    <button id="itemsToggle" type="button" hidden title="아이템 (I)">아이템</button>
+    <button id="artifactsToggle" type="button" hidden title="아티팩트 (I)">아티팩트</button>
     <p id="stageInfo" hidden></p>
     <div id="spiritSlots" hidden aria-label="장착 정령"></div>
     <p id="spiritSummary" hidden></p>
@@ -859,7 +911,7 @@
       <h3>최근 운영 기록</h3><ul id="adminAudit"></ul>
       <p id="adminMessage" class="account-message" role="status" aria-live="polite"></p>
     </dialog>
-    <dialog id="itemDialog" tabindex="-1" aria-labelledby="itemTitle"><div class="item-heading"><h2 id="itemTitle">아이템</h2><button id="itemClose" type="button">닫기 · I</button></div><dl id="itemStats"></dl><ul id="itemList"></ul></dialog>
+    <dialog id="artifactDialog" tabindex="-1" aria-labelledby="artifactTitle"><div class="artifact-heading"><h2 id="artifactTitle">아티팩트</h2><button id="artifactClose" type="button">닫기 · I</button></div><dl id="artifactStats"></dl><ul id="artifactList"></ul><h3 id="codexTitle">도감</h3><ul id="artifactCodex"></ul></dialog>
     <dialog id="rewardDialog" aria-labelledby="rewardTitle"><h2 id="rewardTitle"></h2><p id="rewardDescription"></p><div id="rewardChoices"></div></dialog>
     <dialog id="settings" aria-labelledby="settingsTitle">
       <form method="dialog">
@@ -877,7 +929,7 @@
     <dialog id="pauseOverlay" aria-labelledby="pauseText">
       <p id="pauseText">일시정지</p>
       <button id="pauseResume" class="menu-button" type="button">계속하기</button>
-      <button id="pauseItems" class="text-button" type="button">아이템</button>
+      <button id="pauseArtifacts" class="text-button" type="button">아티팩트</button>
       <button id="pauseSettings" class="text-button" type="button">설정</button>
       <button id="pauseAccount" class="text-button" type="button">계정</button>
     </dialog>
@@ -886,11 +938,14 @@
     <div id="touchZone" hidden></div>
     <div id="layoutEdit" hidden><div id="layoutBar"><span>버튼을 끌어서 옮기세요</span><button id="layoutReset" type="button">초기화</button><button id="layoutDone" type="button">완료</button></div></div>
     <button id="dash" type="button" hidden aria-label="대시">대시</button>
+    <button id="senaUlt" type="button" hidden aria-label="세나 궁극기">세나</button>
+    <div id="weaponBar" hidden role="group" aria-label="무기 선택"><button type="button" data-form="dagger">1 단검</button><button type="button" data-form="sword">2 장검</button><button type="button" data-form="bow">3 활</button><button type="button" data-form="knuckle">4 너클</button></div>
+    <dialog id="augmentDialog" aria-labelledby="augmentTitle"><h2 id="augmentTitle"></h2><div id="augmentCards"></div></dialog>
     <button id="swapSpirit" type="button" hidden aria-label="정령 교체">교체</button>
     <button id="attack" type="button" hidden aria-label="공격">공격</button>
     <button id="joystick" type="button" tabindex="-1" hidden aria-label="이동 조이스틱: 원하는 방향으로 드래그"><span id="joystickKnob"></span><span id="joystickLabel">이동</span></button>
     <div id="skills" hidden>
-      <button type="button" id="comboSkill" hidden><span>F</span><span class="skill-name"></span></button>
+      <button type="button" id="comboSkill" hidden><span>G</span><span class="skill-name"></span></button>
       <button type="button" data-skill="q"><span>Q</span><span class="skill-name"></span></button>
       <button type="button" data-skill="w"><span>W</span><span class="skill-name"></span></button>
       <button type="button" data-skill="e"><span>E</span><span class="skill-name"></span></button>

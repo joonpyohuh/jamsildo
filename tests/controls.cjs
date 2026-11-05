@@ -76,7 +76,7 @@ const screen=async(page,x,y)=>{const b=await page.locator('#game').boundingBox()
   await page.mouse.click(...await screen(page,300,250),{button:'right'});await page.waitForTimeout(60);
   assert(await page.evaluate(()=>window.__jamsildo.player.moving),'우클릭 이동');
   await pin(page,520,180);
-  await page.mouse.click(...await screen(page,520,176),{button:'right'});await page.waitForTimeout(2400);
+  await page.mouse.click(...await screen(page,520,176),{button:'right'});await page.waitForTimeout(2800);
   const chase=await page.evaluate(()=>{const g=window.__jamsildo,e=g.enemies[0];return{x:g.player.x,hp:e.hp,max:e.maxHp,order:!!g.attackOrder};});
   assert(chase.x>300,`쫓아감 ${chase.x}`);assert(chase.hp<chase.max,'때림');assert(chase.order,'지시 유지');
   await page.screenshot({path:join(output,'attack.png')});

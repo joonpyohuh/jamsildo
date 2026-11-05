@@ -90,7 +90,7 @@ const output=join(tmpdir(),'jamsildo-combat');
 
   // 우클릭 지정 후 방향키로 피해도 닿으면 계속 친다
   const box=await page.locator('#game').boundingBox();
-  await page.evaluate(()=>{const g=window.__jamsildo;g.debugStage(3);g.talk=null;g.ui.hideTalk();g.mode='play';g.attackUnlocked=true;g.cheats.health=true;
+  await page.evaluate(()=>{const g=window.__jamsildo;g.debugStage(3);g.talk=null;g.ui.hideTalk();g.mode='play';g.attackUnlocked=true;g.cheats.health=true;g.weapon='bow';
    const rm=g.stage.rooms.find(r=>r.kind==='normal');g.enterRoom(rm,null);rm.cleared=false;const e=g.makeEnemy('bother',360,190,0);e.hp=e.maxHp=100000;e.weight=1000;e.state='rest';e.t=999;e.effects={stun:999};g.enemies=[e];Object.assign(g.player,{x:330,y:190,tx:330,ty:190,moving:false,cd:0});});
   await page.mouse.click(box.x+360/640*box.width,box.y+186/360*box.height,{button:'right'});await page.waitForTimeout(100);
   await page.keyboard.down('ArrowDown');await page.waitForTimeout(160);

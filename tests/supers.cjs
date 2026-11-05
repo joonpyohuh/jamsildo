@@ -105,20 +105,20 @@ const cutOver=page=>page.waitForFunction(()=>!window.__jamsildo.cut,{timeout:400
   // 합동 궁극기: 조건과 안내
   await arena(page,['fire'],[[420,190]]);
   assert.equal(await page.locator('#comboSkill').isVisible(),false,'짝 없으면 버튼 없음');
-  await tap(page,'KeyF');assert.equal(await page.evaluate(()=>!!window.__jamsildo.cut),false);
+  await tap(page,'KeyG');assert.equal(await page.evaluate(()=>!!window.__jamsildo.cut),false);
   await arena(page,['fire','water'],[[420,190]],1);
   await page.waitForFunction(()=>!document.querySelector('#comboSkill').hidden);
   assert(await page.locator('#comboSkill').isDisabled(),'하급이면 잠김');
-  await tap(page,'KeyF');assert.equal(await page.evaluate(()=>!!window.__jamsildo.cut),false,'하급은 불가');
+  await tap(page,'KeyG');assert.equal(await page.evaluate(()=>!!window.__jamsildo.cut),false,'하급은 불가');
   await arena(page,['fire','water'],[[420,190],[600,60]]);
   await page.evaluate(()=>{window.__jamsildo.equipped[1].cooldowns.r=9;});
-  await tap(page,'KeyF');assert.equal(await page.evaluate(()=>!!window.__jamsildo.cut),false,'R 쿨타임 중 불가');
+  await tap(page,'KeyG');assert.equal(await page.evaluate(()=>!!window.__jamsildo.cut),false,'R 쿨타임 중 불가');
   await page.evaluate(()=>{const g=window.__jamsildo;g.equipped[1].cooldowns.r=0;g.player.energy=10;});
-  await tap(page,'KeyF');assert.equal(await page.evaluate(()=>!!window.__jamsildo.cut),false,'기력 부족 불가');
+  await tap(page,'KeyG');assert.equal(await page.evaluate(()=>!!window.__jamsildo.cut),false,'기력 부족 불가');
   await page.evaluate(()=>{window.__jamsildo.player.energy=100;});
   await page.waitForFunction(()=>!document.querySelector('#comboSkill').disabled);
   await page.screenshot({path:join(output,'combo-ready.png')});
-  await tap(page,'KeyF');
+  await tap(page,'KeyG');
   assert.equal(await page.locator('#superName').textContent(),'증기 나선');
   assert.match(await page.locator('#superLabel').textContent(),/메르 × 쿠이/);
   await page.waitForTimeout(300);await page.screenshot({path:join(output,'cut-steam.png')});
@@ -130,16 +130,16 @@ const cutOver=page=>page.waitForFunction(()=>!window.__jamsildo.cut,{timeout:400
   const hits=await page.evaluate(()=>window.__jamsildo.enemies[0].effects.burn>0);assert(hits,'마지막 타격 화상');
   console.log('PASS 증기 나선: 조건 거부 4종, 기력·쿨타임, 판정');
 
-  await arena(page,['light','dark'],[[440,190],[470,120]]);
+  await arena(page,['light','dark'],[[440,190],[470,120]],3);
   await page.evaluate(()=>{const g=window.__jamsildo;g.fireEnemy(100,100,0,1,'tear',5,false,'dark');});
-  await tap(page,'KeyF');await cutOver(page);await page.waitForTimeout(800);
+  await tap(page,'KeyG');await cutOver(page);await page.waitForTimeout(800);
   await page.screenshot({path:join(output,'combo-eclipse.png')});
   const eclipse=await page.evaluate(()=>{const g=window.__jamsildo;return{hurt:g.enemies.map(e=>e.maxHp-e.hp),blind:g.enemies.every(e=>e.effects.blind>0),bullets:g.bullets.filter(b=>b.owner==='enemy').length};});
   assert(eclipse.hurt.every(v=>v>0),`일식 범위 ${eclipse.hurt}`);assert(eclipse.blind);assert.equal(eclipse.bullets,0,'탄 전부 소거');
   // 왼쪽이면 정령이 뒤집히지 않고 좌우만 바뀐다
-  await arena(page,['light','dark'],[[60,120]]);
+  await arena(page,['light','dark'],[[60,120]],3);
   await page.evaluate(()=>{const g=window.__jamsildo;Object.assign(g.player,{x:480,tx:480});});
-  await tap(page,'KeyF');await cutOver(page);
+  await tap(page,'KeyG');await cutOver(page);
   const flip=await page.evaluate(()=>{const s=window.__jamsildo.supers[0];return{dir:s.dir,tilt:s.tilt};});
   assert.equal(flip.dir,-1);assert(Math.abs(flip.tilt)<=0.45,'정령은 크게 기울지 않음');
   await page.waitForTimeout(300);await page.screenshot({path:join(output,'combo-eclipse-left.png')});

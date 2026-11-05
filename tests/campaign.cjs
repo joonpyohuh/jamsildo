@@ -32,7 +32,7 @@ const fs=require('node:fs/promises');
   });assert.equal(topology.maps,1000);assert.equal(topology.art,124);console.log('PASS 1,000 maps: exactly one reachable boss, reciprocal doors, fallback, 124 sprites');
   const movement=await page.evaluate(async()=>{
    const {FLOOR,CX,CY}=await import('/src/game/config.ts');
-   const g=window.__jamsildo;g.debugStage(1);g.enterRoom(g.stage.start,null);
+   const g=window.__jamsildo;g.skipAugments=true;g.debugStage(1);g.enterRoom(g.stage.start,null);
    const reset=()=>{Object.assign(g.player,{x:320,y:180,tx:320,ty:180,vx:0,vy:0,lungeT:0,effects:{},slowFactor:0.5});g.reverseTime=0;};
    reset();g.input.move={x:1,y:0};g.updatePlayer(0.1);if(Math.abs(g.player.x-335)>0.001)throw Error('joystick speed');
    reset();g.input.move={x:Math.SQRT1_2,y:Math.SQRT1_2};g.updatePlayer(0.1);if(Math.abs(Math.hypot(g.player.x-320,g.player.y-180)-15)>0.001)throw Error('diagonal speed boost');
@@ -59,7 +59,7 @@ const fs=require('node:fs/promises');
   const mechanics=await page.evaluate(async()=>{
    const {BOSSES,newSpirit,SKILLS}=await import('/src/game/campaign.ts');
    const {contains,tickStatuses}=await import('/src/game/combat.ts');
-   const g=window.__jamsildo;let patterns=0,skills=0;
+   const g=window.__jamsildo;g.skipAugments=true;let patterns=0,skills=0;
    for(let number=1;number<=20;number++){
     g.debugStage(number);g.enterRoom(g.stage.boss,null);const boss=g.enemies.find(e=>e.boss?.main);
     if(!boss||boss.boss.id!==g.stage.bossId||boss.hp!==BOSSES[g.stage.bossId].hp*(number===1?0.6:1))throw Error(`boss data ${number}`);
@@ -129,14 +129,14 @@ const fs=require('node:fs/promises');
    return {patterns,skills};
   });assert.equal(mechanics.skills,24);console.log(`PASS ${mechanics.patterns} boss pattern runs, all phases, 24 spirit skills, telegraphs, statuses, shields, cooldowns`);
   const progress=await page.evaluate(()=>{
-   const g=window.__jamsildo;g.debugStage(1);let passed=0;
+   const g=window.__jamsildo;g.skipAugments=true;g.debugStage(1);let passed=0;
    for(let number=1;number<=19;number++){
     if(g.stage.number!==number)throw Error('stage sequence');g.player.invuln=10000;
     g.enterRoom(g.stage.boss,null);const boss=g.enemies.find(e=>e.boss?.main);boss.boss.invulnerable=false;boss.boss.elapsed=0;
     g.hitEnemy(boss,100000,0,0,true);if(g.endingT<0||!g.stage.boss.cleared)throw Error(`boss not cleared ${number}`);
     g.player.x=-30;g.player.y=147;g.checkExit();if(g.mode!=='play')throw Error('exit during boss finish');
-    g.endingT=3.6;g.hitstop=0;g.timeScale=1;g.update(0.05);
-    if(g.item){if(g.mode!=='play')throw Error(`left before pickup ${number}`);g.item.t=1;g.player.x=g.item.x;g.player.y=g.item.y+8;g.attackPressed();if(g.item)throw Error(`pickup ${number}`);g.update(0.05);}
+    g.endingT=5.2;g.hitstop=0;g.timeScale=1;g.update(0.05);
+    if(g.drop){if(g.mode!=='play')throw Error(`left before pickup ${number}`);g.drop.t=1;g.player.x=g.drop.x;g.player.y=g.drop.y+8;g.attackPressed();if(g.drop)throw Error(`pickup ${number}`);g.update(0.05);}
     if(g.mode!=='clear')throw Error(`missing clear ${number}`);
     g.screenT=1;g.onScreenTap();if(g.stage.number!==number+1)throw Error('next stage');passed++;
    }
@@ -149,17 +149,17 @@ const fs=require('node:fs/promises');
    return passed+1;
   });assert.equal(progress,20);console.log('PASS all 20 stage transitions, boss-room retention, final embrace ending');
   for(const number of [3,5,8,10,13,15,18,20]){
-   await page.evaluate(number=>{const g=window.__jamsildo;g.debugStage(number);g.enterRoom(g.stage.boss,null);g.player.invuln=10000;g.player.x=240;g.player.y=220;},number);
+   await page.evaluate(number=>{const g=window.__jamsildo;g.skipAugments=true;g.debugStage(number);g.enterRoom(g.stage.boss,null);g.player.invuln=10000;g.player.x=240;g.player.y=220;},number);
    await page.waitForTimeout(1150);await page.screenshot({path:join(output,`boss-${number}.png`)});
   }
   const context=await browser.newContext({viewport:{width:844,height:390},isMobile:true,hasTouch:true});
   const mobile=await context.newPage();mobile.on('pageerror',e=>errors.push(e.message));
   await mobile.goto('http://localhost:5173');await mobile.waitForFunction(()=>!document.querySelector('#startGame').disabled);
-  await mobile.evaluate(()=>{const g=window.__jamsildo;g.debugStage(4);g.enterRoom(g.stage.rooms.find(r=>r.kind==='spirit'),null);g.enemies.forEach(e=>g.faceEnemy(e,true));g.checkClear();g.player.x=g.spirit.x;g.player.y=g.spirit.y+10;g.updateSpirit(1);});
+  await mobile.evaluate(()=>{const g=window.__jamsildo;g.skipAugments=true;g.debugStage(4);g.enterRoom(g.stage.rooms.find(r=>r.kind==='spirit'),null);g.enemies.forEach(e=>g.faceEnemy(e,true));g.checkClear();g.player.x=g.spirit.x;g.player.y=g.spirit.y+10;g.updateSpirit(1);});
   await mobile.locator('#rewardDialog[open]').waitFor();assert.equal(await mobile.locator('.spirit-choice').count(),3);
   await mobile.screenshot({path:join(output,'mobile-spirit-choice.png')});
   await mobile.locator('.spirit-choice').first().tap();await mobile.waitForFunction(()=>window.__jamsildo.equipped.length===1);
-  await mobile.evaluate(()=>{const g=window.__jamsildo;for(let i=0;i<6&&g.mode==='talk';i++)g.advanceTalk();g.player.invuln=10000;g.player.maxEnergy=g.player.energy=100;g.equipped[0].tier=2;});
+  await mobile.evaluate(()=>{const g=window.__jamsildo;g.skipAugments=true;for(let i=0;i<6&&g.mode==='talk';i++)g.advanceTalk();g.player.invuln=10000;g.player.maxEnergy=g.player.energy=100;g.equipped[0].tier=2;});
   await mobile.locator('#skills button[data-skill="q"]:enabled').waitFor();
   const button=await mobile.locator('#skills button[data-skill="q"]').boundingBox();const cdp=await context.newCDPSession(mobile);
   await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{id:1,x:button.x+22,y:button.y+20}]});

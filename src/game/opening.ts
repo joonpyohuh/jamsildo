@@ -12,6 +12,9 @@ import { pixelEllipse } from './fx';
 import { SPRITES, fromRows, glow } from './sprites';
 import { PixelLayer } from './pixelfx';
 import type { Expr } from './lines';
+
+/** 씬 2의 기상 동작 */
+const RISE_TIME = 3, RISE_FRAMES = 6;
 import { bayer, blit, ditherFade } from './cine/pix';
 import {
   BOW, DAGGER, LYING, SENA_CROUCH, SHADE_INDIGO, SHADE_UNSEEN, SWORD, WALK, YUN_FOOT_X, YUN_H,
@@ -293,7 +296,7 @@ function drawRising(ctx: CanvasRenderingContext2D, spr: HTMLCanvasElement, x: nu
 
 interface Bit { x: number; y: number; vx: number; vy: number; life: number; c: string }
 
-type Eyes = 'open' | 'shut' | 'covered';
+type Eyes = 'open' | 'shut' | 'covered' | 'empty';
 
 export class Opening {
   private si = 0;
@@ -308,6 +311,7 @@ export class Opening {
   private bits: Bit[] = [];
   private shakeT = 0;
   private readonly scenes: readonly Scene[];
+  private riseAt = -1;
   private readonly px = new PixelLayer();
 
   /* 미리 구운 배경 (무거운 건 그 씬에 처음 들어갈 때) */
@@ -520,7 +524,7 @@ export class Opening {
       rect(ctx, H.x, H.y + 6, 4, 3, '#141319');
       rect(ctx, H.x + 1, H.y + 9, 3, 1, '#2b2a35');
     } else {
-      ctx.drawImage(eyes === 'open' ? LYING.open : LYING.shut, Math.round(H.x + toss), H.y);
+      if (eyes !== 'empty') ctx.drawImage(eyes === 'open' ? LYING.open : LYING.shut, Math.round(H.x + toss), H.y);
     }
     if (clock) this.drawClock(ctx, t);
   }
@@ -531,6 +535,22 @@ export class Opening {
     if (on) halo(ctx, ROOM.clock.x + 6, ROOM.clock.y + 4, 12, '#4a3420', 0.5);
     rect(ctx, ROOM.clock.x + 1, ROOM.clock.y + 2, 10, 5, '#0c0d10');
     clockDigits(ctx, ROOM.clock.x + 1, ROOM.clock.y + 2, on ? '#e0a458' : '#4a321c');
+  }
+
+  /** 씬 2 끝: 상체를 천천히 일으켜(6프레임) 침대 가장자리에 앉았다가 일어선다 */
+  private drawRising(ctx: CanvasRenderingContext2D, t: number): void {
+    if (this.riseAt < 0) this.riseAt = t;
+    const k = clamp((t - this.riseAt) / RISE_TIME, 0, 1), step = Math.ceil(k * RISE_FRAMES) / RISE_FRAMES;
+    const standing = t - this.riseAt > RISE_TIME + 2, spr = SPRITES.yunseul[0];
+    this.drawRoom(ctx, t, true, 'empty', 0, true);
+    dim(ctx, 0.25);
+    ctx.save();
+    ctx.translate(ROOM.head.x + 14, ROOM.head.y + (standing ? 26 : 22));
+    ctx.rotate((1 - step) * Math.PI / 2);
+    // 앉은 동안은 고개를 숙인다
+    if (k >= 1 && !standing) ctx.scale(1, 0.86);
+    ctx.drawImage(spr, -Math.round(spr.width / 2), -spr.height);
+    ctx.restore();
   }
 
   /* ── 씬 구성 ── */
@@ -554,14 +574,16 @@ export class Opening {
     /* 씬 2 · 방: 넓게 → 이름이 뜨는 순간 얼굴 쪽 2배 클로즈업으로 컷 */
     const s2: Scene = {
       lines: [
-        { text: '허윤슬, 24살.', delay: 1.6 },
+        { text: '허윤슬, 24살.', delay: 3.4 },
         { text: '우울증 진단을 받고, 2년째 이 방에 있다.', delay: 0.6 },
+        { text: '"으윽.."', delay: 0.8 },
       ],
-      post: 1.0,
+      post: RISE_TIME + 2.4,
       draw: (ctx, c) => {
+        if (c.li >= 2) { this.drawRising(ctx, c.t); return; }
         const close = c.li >= 1 || c.lt >= 1.6;
         // 두 번째 줄: 일어나려다 마는 뒤척임 (1px 갔다가 돌아온다)
-        const toss = c.li === 1 && c.lt > 1.2 && c.lt < 2.4 ? 1 : 0;
+        const toss = c.li === 0 && c.lt > 2 && c.lt < 3 ? 1 : 0;
         if (!close) {
           this.drawRoom(ctx, c.t, true, eyesAt(c.t), 0, true);
           dim(ctx, 0.4);

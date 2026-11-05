@@ -42,7 +42,6 @@ export const ELEMENT: Readonly<Record<Element, {
 };
 
 /** 레퍼런스처럼 대미지 숫자를 띄울지. 기획서의 '정보 최소' 원칙 때문에 기본은 끈다. */
-export const SHOW_DAMAGE_NUMBERS = false;
 
 /**
  * 팔레트: 차가운 무채색 + 강조색 하나.

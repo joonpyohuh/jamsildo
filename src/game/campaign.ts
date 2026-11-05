@@ -52,20 +52,11 @@ export const SKILL_DESC: Record<Element, Record<SkillKey, string>> = {
   },
 };
 /** 합동 궁극기: 짝이 되는 두 정령이 함께 있고, 둘 다 중급 이상에 R이 준비됐을 때 쓴다 */
-export interface ComboSpec { name: string; pair: readonly [Element, Element]; cost: number; damage: number; text: string }
+export interface ComboSpec { name: string; pair: readonly [Element, Element]; tier: number; cost: number; damage: number; text: string; /** 없으면 두 정령의 R 쿨타임 */ cd?: number }
 export const COMBOS: readonly ComboSpec[] = [
-  { name: '증기 나선', pair: ['fire', 'water'], cost: 30, damage: 220, text: '메르와 쿠이가 불과 물을 꼬아 쏜다. 앞의 그늘을 세 번 꿰뚫고 불태운다.' },
-  { name: '일식 베기', pair: ['light', 'dark'], cost: 30, damage: 240, text: '루나와 카이가 일식을 만들어 벤다. 주변 그늘을 기절시키고 눈을 멀게 하며, 화면의 탄을 모두 지운다.' },
+  { name: '증기 나선', pair: ['fire', 'water'], tier: 2, cost: 30, damage: 220, text: '메르와 쿠이가 불과 물을 꼬아 쏜다. 앞의 그늘을 세 번 꿰뚫고 불태운다.' },
+  { name: '일식', pair: ['light', 'dark'], tier: 3, cost: 60, cd: 90, damage: 80, text: '화면이 3초 어두워지고 모든 그늘에게 큰 피해와 표식을 남긴다. 이후 5초간 받는 피해 +20%.' },
 ];
-export type ItemId = 'meal' | 'thermos' | 'shoes' | 'crystal' | 'heart';
-export interface ItemSpec { name: string; effect: string; /** 있으면 상점 품목 */ cost?: number; /** 한 판에 가질 수 있는 수 */ limit?: number }
-export const ITEMS: Readonly<Record<ItemId, ItemSpec>> = {
-  meal: { name: '선식 한 컵', effect: 'HP +25 · 공격력 +15%', cost: 8 },
-  thermos: { name: '식지 않는 보온병', effect: '기력 회복 속도 +25%', cost: 12, limit: 5 },
-  shoes: { name: '끈 묶은 운동화', effect: '공격력 +12% · 최대 기력 +3' },
-  crystal: { name: '기력의 결정', effect: '최대 기력 +10' },
-  heart: { name: '심장 조각', effect: '최대 체력 +20' },
-};
 /** 일반 그늘 이름: 챕터 스프라이트 → 이름. 스프라이트가 없으면 종류 이름으로 돌아간다. */
 export const ENEMY_NAMES: Record<string, string> = {
   bother: '귀찮음', heavy: '힘듦', gloom: '우울감',

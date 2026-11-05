@@ -50,8 +50,6 @@ export const SWORD_DROP = 0.16;
 export const REAPER_SWING = 0.26;
 /** 일식이 완성되어 터지는 시간 */
 export const ECLIPSE_BURST = 0.24;
-/** 시전 지점에서 일식 중심까지. 그림의 앵커 차이(0.605) × 폭 560 */
-export const ECLIPSE_REACH = 339;
 export const WAVE_SPEED = 800;
 
 /** 끝에서 4단으로 끊어 사라진다 (도트에 부드러운 페이드는 어울리지 않는다) */
@@ -93,7 +91,10 @@ export function drawSuperFx(ctx: CanvasRenderingContext2D, fx: SuperFx, ox: numb
 
 /* ═══════════════ 컷인 ═══════════════ */
 
+export type CutKind = 'spirit' | 'sena' | 'card' | 'awaken' | 'evolve';
+
 export interface Cut {
+  kind: CutKind;
   t: number; life: number;
   /** 세나 옆에 함께 서는 정령 그림 */
   spirits: readonly string[];
@@ -103,8 +104,47 @@ export interface Cut {
 
 const BAR = 46;
 
+/** 세나 궁극기: 배경 70% 어둡게, 상반신이 오른쪽에서 들어오고 은빛 속도선이 흐른다 */
+function drawSenaCut(ctx: CanvasRenderingContext2D, cut: Cut): void {
+  ctx.fillStyle = 'rgba(4, 5, 8, 0.7)';
+  ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+  ctx.fillStyle = '#dfe6f0';
+  for (let i = 0; i < 26; i += 1) {
+    const y = (i * 37) % VIEW_H, length = 40 + (i * 53) % 120;
+    ctx.fillRect(Math.round(VIEW_W - ((cut.t * 900 + i * 131) % (VIEW_W + 160))), y, length, 1);
+  }
+  const sena = ART.get('sena_human');
+  if (!sena) return;
+  const slide = easeOut(Math.min(1, cut.t / 0.25)), scale = 2, crop = 92;
+  ctx.drawImage(sena, 0, 0, sena.width, crop, Math.round(VIEW_W - 30 - sena.width * scale * slide), 70, sena.width * scale, crop * scale);
+}
+
+/** 보스 카드: 위 띠는 왼쪽에서, 아래 띠는 오른쪽에서 들어온다 */
+function drawBossCard(ctx: CanvasRenderingContext2D, cut: Cut): void {
+  const inK = easeOut(Math.min(1, cut.t / 0.25)), outK = Math.max(0, (cut.t - cut.life + 0.25) / 0.25), w = Math.round(VIEW_W * inK * (1 - outK));
+  ctx.fillStyle = '#050608';
+  ctx.fillRect(0, 96, w, 84);
+  ctx.fillRect(VIEW_W - w, 180, w, 84);
+}
+
+/** 정령 진화: 실루엣이 먼저, 그다음 새 모습 */
+function drawEvolve(ctx: CanvasRenderingContext2D, cut: Cut): void {
+  ctx.fillStyle = 'rgba(4, 5, 8, 0.75)';
+  ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+  const art = ART.get(cut.spirits[0] ?? '');
+  if (!art) return;
+  ctx.save();
+  if (cut.t < cut.life * 0.45) ctx.filter = 'brightness(0)';
+  ctx.drawImage(art, Math.round(VIEW_W / 2 - art.width / 2 - 120), Math.round(VIEW_H / 2 - art.height / 2));
+  ctx.restore();
+}
+
 /** 세상이 멈추고 띠가 닫히면 무기였던 세나가 사람 모습으로 들어온다 */
 export function drawCutIn(ctx: CanvasRenderingContext2D, cut: Cut): void {
+  if (cut.kind === 'awaken') return;
+  if (cut.kind === 'sena') { drawSenaCut(ctx, cut); return; }
+  if (cut.kind === 'card') { drawBossCard(ctx, cut); return; }
+  if (cut.kind === 'evolve') { drawEvolve(ctx, cut); return; }
   const opening = Math.min(1, cut.t / 0.12), closing = Math.max(0, (cut.t - cut.life + 0.1) / 0.1);
   const shut = easeOut(opening) * (1 - closing);
   ctx.fillStyle = `rgba(4, 5, 8, ${0.8 * shut})`;

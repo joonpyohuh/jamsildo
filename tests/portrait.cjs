@@ -184,7 +184,7 @@ const touch=async(cdp,type,points)=>cdp.send('Input.dispatchTouchEvent',{type,to
   await page.screenshot({path:join(output,'rotate-pause.png')});
   await page.locator('#pauseResume').tap();await page.waitForFunction(c=>window.__jamsildo.clock>c,clock);
   assert.equal(await page.locator('#joystick').isVisible(),true,'가로는 고정 조이스틱');
-  assert.equal(await page.locator('#dash').isVisible(),false,'가로엔 대시 없음');
+  assert.equal(await page.locator('#dash').isVisible(),true,'가로에도 대시');
   await page.setViewportSize({width:390,height:844});
   await page.waitForFunction(()=>document.querySelector('#pauseOverlay').open);
   assert.deepEqual(await snap(),before,'가로→세로 상태 유지');
@@ -194,8 +194,8 @@ const touch=async(cdp,type,points)=>cdp.send('Input.dispatchTouchEvent',{type,to
   // 일시정지 버튼과 메뉴
   await page.locator('#pauseToggle').tap();await page.waitForFunction(()=>document.querySelector('#pauseOverlay').open);
   await page.screenshot({path:join(output,'pause.png')});
-  await page.locator('#pauseItems').tap();assert(await page.evaluate(()=>document.querySelector('#itemDialog').open),'아이템');
-  await page.locator('#itemClose').tap();
+  await page.locator('#pauseArtifacts').tap();assert(await page.evaluate(()=>document.querySelector('#artifactDialog').open),'아이템');
+  await page.locator('#artifactClose').tap();
 
   // 버튼 배치: 가로·세로 따로 저장
   await page.locator('#pauseToggle').tap();await page.locator('#pauseSettings').tap();await page.locator('#editLayout').tap();

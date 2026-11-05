@@ -6,7 +6,8 @@ export type ScreenId = 'title' | 'down' | 'clear';
 
 import { EXPR_INDEX, type Expr } from './lines';
 import type { Room } from './stage';
-import { CHAPTERS, ITEMS, PATTERN_LABELS, SKILLS, SPIRIT_ASSETS, SPIRIT_NAMES, SPIRIT_ROLES, type ItemId, type SpiritSlot } from './campaign';
+import { ARTIFACTS, type ArtifactId, type ArtifactSpec, type Augment, type Grade } from './build';
+import { CHAPTERS, PATTERN_LABELS, SKILLS, SPIRIT_ASSETS, SPIRIT_NAMES, SPIRIT_ROLES, type SpiritSlot } from './campaign';
 import { ELEMENT, type Element } from './config';
 
 /** 표정 얼굴: public/portraits/expr/{sena|yun}-{0..5}.png */
@@ -22,10 +23,13 @@ for (const who of ['sena', 'yunseul'] as const) {
 export interface EnemyInfo { name: string; meta: string; ratio: number; text: string }
 export interface ComboHud { name: string; pair: string; cost: number; text: string; grown: boolean; cooldown: number; ready: boolean }
 export interface PickupPrompt { text: string; x: number; y: number; near: boolean }
-export interface Inventory { stats: readonly (readonly [string, string])[]; items: readonly { id: ItemId; count: number }[] }
+export interface Inventory { stats: readonly (readonly [string, string])[]; items: readonly { id: ArtifactId; count: number }[]; codex: readonly ArtifactId[] }
 
 export class Ui {
   private hudTime=0;
+  private storyTimer=0;
+  private storyHide=0;
+  private superText:string[]|null=null;
   private spiritKey='';
   private readonly screens: Record<ScreenId, HTMLElement>;
   private readonly bossName: HTMLElement;
@@ -106,22 +110,23 @@ export class Ui {
     dialog.oncancel=event=>{event.preventDefault();};
   }
 
-  chooseReward(goods:readonly ItemId[],warmth:number,buy:(id:ItemId)=>void):void {
+  chooseReward(goods:readonly ArtifactId[],warmth:number,buy:(id:ArtifactId)=>void):void {
     const dialog=document.querySelector<HTMLDialogElement>('#rewardDialog')!;
     dialog.querySelector('#rewardTitle')!.textContent='작은 가게';
     dialog.querySelector('#rewardDescription')!.textContent=`온기 ${warmth} · 품목마다 한 번씩 살 수 있어요.`;
     const choices=dialog.querySelector('#rewardChoices')!;choices.replaceChildren();
     for(const id of goods){
-      const spec=ITEMS[id],cost=spec.cost??0,good=document.createElement('button');good.type='button';good.className='spirit-choice shop-good';good.dataset.item=id;good.disabled=warmth<cost;
-      const name=document.createElement('strong');name.textContent=`${spec.name} · 온기 ${cost}`;
-      const effect=document.createElement('span');effect.textContent=spec.effect;
+      const spec=ARTIFACTS[id],cost=spec.cost??0,good=document.createElement('button');good.type='button';good.className='spirit-choice shop-good';good.dataset.artifact=id;good.disabled=warmth<cost;
+      const name=document.createElement('strong');name.textContent=`${spec.curse?'저주 · ':''}${spec.name} · 온기 ${cost}`;
+      const effect=document.createElement('span');effect.textContent=spec.price?`${spec.effect} · 대가: ${spec.price}`:spec.effect;
+      good.classList.toggle('is-curse',!!spec.curse);
       good.append(name,effect);good.onclick=()=>buy(id);choices.append(good);
     }
     const close=document.createElement('button');close.type='button';close.className='menu-button';close.textContent='다음에 올게요';close.onclick=()=>dialog.close();
     choices.append(close);dialog.oncancel=null;if(!dialog.open)dialog.showModal();
   }
 
-  updateCombat(state:{stage:number;chapter:number;within:number;blocked:boolean;energy:number;maxEnergy:number;infiniteEnergy:boolean;warmth:number;armor:number;equipped:readonly SpiritSlot[];active:number;mode:string;slots:number;combo:ComboHud|null;
+  updateCombat(state:{stage:number;chapter:number;within:number;blocked:boolean;energy:number;maxEnergy:number;infiniteEnergy:boolean;warmth:number;armor:number;equipped:readonly SpiritSlot[];active:number;mode:string;slots:number;combo:ComboHud|null;gauge:number;weapon:string;
     boss:null|{name:string;hp:number;maxHp:number;phase:number;thresholds:number[];pattern:string;protected:boolean;qte:string|null;enraged:boolean}}):void {
     const now=performance.now();if(now-this.hudTime<80)return;this.hudTime=now;
     const q=<T extends HTMLElement=HTMLElement>(selector:string)=>document.querySelector<T>(selector)!;
@@ -129,7 +134,7 @@ export class Ui {
     // 세로는 상단 바에 재화가 늘 보여야 해서 정령이 없어도 숨기지 않는다
     const portraitHud=document.documentElement.classList.contains('portrait');
     const energy=q('#energyHud');energy.hidden=(!state.equipped.length&&!portraitHud)||!['play','talk','slide','embrace'].includes(state.mode);
-    q('#energyText').textContent=`기력 ${Math.floor(state.energy)}/${state.maxEnergy} · 온기 ${state.warmth}${state.armor?` · 방어 ${state.armor}`:''}${state.blocked?' · 스킬 봉인':''}`;
+    q('#energyText').textContent=`기력 ${Math.floor(state.energy)}/${state.maxEnergy} · 온기 ${state.warmth} · 세나 ${Math.floor(state.gauge*100)}%${state.armor?` · 방어 ${state.armor}`:''}${state.blocked?' · 스킬 봉인':''}`;
     q<HTMLProgressElement>('#energyBar').value=state.energy;q<HTMLProgressElement>('#energyBar').max=state.maxEnergy;
     const active=state.equipped[state.active];
     const key=state.equipped.map((slot,i)=>`${slot.element}${slot.tier}${i===state.active}`).join(',');
@@ -152,11 +157,13 @@ export class Ui {
       button.dataset.cooldown=locked?'잠김':cd>0?String(Math.ceil(cd)):'';
       button.style.setProperty('--cd',String(ratio));
       const chip=q(`#statusCds [data-cd="${key}"]`);chip.textContent=cd>0?String(Math.ceil(cd)):key.toUpperCase();chip.classList.toggle('is-wait',cd>0||locked);
-      if(key==='r')q<HTMLProgressElement>('#ultGauge').value=locked||!active?0:1-ratio;
       button.querySelector('.skill-name')!.textContent=spec?.name??'';
       button.setAttribute('aria-label',spec?`${key.toUpperCase()} · ${spec.name} · 기력 ${spec.cost} · ${spec.cd}초`:'');
       if(active)button.style.borderColor=ELEMENT[active.element].glow;
     }
+    q<HTMLProgressElement>('#ultGauge').value=state.gauge;
+    const ult=q<HTMLButtonElement>('#senaUlt');ult.disabled=state.gauge<1;ult.style.setProperty('--cd',String(1-state.gauge));
+    for(const button of document.querySelectorAll<HTMLElement>('#weaponBar [data-form]'))button.classList.toggle('is-active',button.dataset.form===state.weapon);
     const comboButton=q<HTMLButtonElement>('#comboSkill');comboButton.hidden=!state.combo;
     if(state.combo){
       comboButton.disabled=!state.combo.ready;
@@ -214,8 +221,8 @@ export class Ui {
     }
   }
 
-  renderItems(inventory:Inventory):void {
-    const stats=document.querySelector<HTMLElement>('#itemStats')!,list=document.querySelector<HTMLElement>('#itemList')!;
+  renderArtifacts(inventory:Inventory):void {
+    const stats=document.querySelector<HTMLElement>('#artifactStats')!,list=document.querySelector<HTMLElement>('#artifactList')!;
     stats.replaceChildren();list.replaceChildren();
     for(const [label,value] of inventory.stats){
       const row=document.createElement('div'),name=document.createElement('dt'),amount=document.createElement('dd');
@@ -223,17 +230,78 @@ export class Ui {
     }
     for(const {id,count} of inventory.items){
       const row=document.createElement('li'),name=document.createElement('strong'),effect=document.createElement('span');
-      name.textContent=count>1?`${ITEMS[id].name} ×${count}`:ITEMS[id].name;effect.textContent=ITEMS[id].effect;row.append(name,effect);list.append(row);
+      const spec=ARTIFACTS[id];name.textContent=`${spec.curse?'저주 · ':''}${spec.name}${count>1?` ×${count}`:''}`;effect.textContent=spec.price?`${spec.effect} · 대가: ${spec.price}`:spec.effect;row.append(name,effect);list.append(row);
     }
-    if(!inventory.items.length){const empty=document.createElement('li');empty.className='is-empty';empty.textContent='아직 없어요. 가게와 깊은 그늘에서 얻을 수 있어요.';list.append(empty);}
+    if(!inventory.items.length){const empty=document.createElement('li');empty.className='is-empty';empty.textContent='아직 없어요. 가게와 깊은 그늘, 보스에게서 얻을 수 있어요.';list.append(empty);}
+    const codex=document.querySelector<HTMLElement>('#artifactCodex')!;codex.replaceChildren();
+    for(const id of inventory.codex){const row=document.createElement('li');row.textContent=`${ARTIFACTS[id].name} — ${ARTIFACTS[id].story}`;codex.append(row);}
+  }
+
+  /** 쓰러진 화면의 세나 대사 */
+  setDownLine(line:string):void { document.querySelector('#down .body')!.textContent=`『${line}』`; }
+
+  /** 아티팩트 사연: 한 글자씩 천천히 나오고 사라진다 */
+  story(spec:ArtifactSpec):void {
+    const el=document.querySelector<HTMLElement>('#storyLine')!;
+    window.clearInterval(this.storyTimer);window.clearTimeout(this.storyHide);
+    el.hidden=false;el.classList.toggle('is-curse',!!spec.curse);
+    el.querySelector('strong')!.textContent=spec.name;
+    const text=el.querySelector('span')!;text.textContent='';
+    let shown=0;
+    this.storyTimer=window.setInterval(()=>{
+      shown+=1;text.textContent=spec.story.slice(0,shown);
+      if(shown<spec.story.length)return;
+      window.clearInterval(this.storyTimer);
+      this.storyHide=window.setTimeout(()=>{el.hidden=true;},2400);
+    },55);
+  }
+
+  /** 증강: 뒷면으로 떨어진 카드가 동시에 뒤집힌다. 프리즘은 0.3초 멈췄다가 무지개가 번진다. */
+  chooseAugment(grade:Grade,cards:readonly Augment[],pick:(card:Augment)=>void):void {
+    const dialog=document.querySelector<HTMLDialogElement>('#augmentDialog')!,list=dialog.querySelector<HTMLElement>('#augmentCards')!;
+    dialog.dataset.grade=grade;
+    dialog.querySelector('#augmentTitle')!.textContent=grade==='prism'?'프리즘 증강':grade==='gold'?'골드 증강':'실버 증강';
+    list.replaceChildren();
+    for(const card of cards){
+      const button=document.createElement('button');button.type='button';button.className=`aug-card is-${grade}`;button.textContent=card.name;
+      button.addEventListener('click',()=>{dialog.close();pick(card);},{once:true});list.append(button);
+    }
+    dialog.oncancel=event=>{event.preventDefault();};
+    if(!dialog.open)dialog.showModal();
+  }
+
+  /** 숨 고르기방: 현재 HP 30%를 내고 저주를 하나 떼어낸다 */
+  chooseCurse(ids:readonly ArtifactId[],remove:(id:ArtifactId)=>void):void {
+    const dialog=document.querySelector<HTMLDialogElement>('#rewardDialog')!;
+    dialog.querySelector('#rewardTitle')!.textContent='저주 떼어내기';
+    dialog.querySelector('#rewardDescription')!.textContent='현재 HP의 30%를 내고 하나를 떼어낼 수 있어요.';
+    const choices=dialog.querySelector('#rewardChoices')!;choices.replaceChildren();
+    for(const id of ids){
+      const button=document.createElement('button');button.type='button';button.className='spirit-choice shop-good is-curse';
+      const name=document.createElement('strong');name.textContent=ARTIFACTS[id].name;
+      const price=document.createElement('span');price.textContent=ARTIFACTS[id].price??'';
+      button.append(name,price);button.onclick=()=>{dialog.close();remove(id);};choices.append(button);
+    }
+    const close=document.createElement('button');close.type='button';close.className='menu-button';close.textContent='그대로 둔다';close.onclick=()=>dialog.close();
+    choices.append(close);dialog.oncancel=null;if(!dialog.open)dialog.showModal();
   }
 
   /** 컷인의 글자. 그림은 캔버스에 있고, 글자만 도트 격자에 맞춰 DOM으로 얹는다. */
-  showSuper(label:string,name:string,line:string,glow:string):void {
+  showSuper(label:string,name:string,line:string,glow:string,kind='spirit'):void {
     const el=document.querySelector<HTMLElement>('#superCut')!;
-    el.querySelector('#superLabel')!.textContent=label;el.querySelector('#superName')!.textContent=name;el.querySelector('#superLine')!.textContent=`『${line}』`;
+    el.dataset.kind=kind;this.superText=kind==='card'?[name,line]:null;
+    el.querySelector('#superLabel')!.textContent=label;el.querySelector('#superName')!.textContent=name;el.querySelector('#superLine')!.textContent=kind==='card'?line:line?`『${line}』`:'';
+    if(this.superText)this.revealSuper(0);
     el.style.setProperty('--glow',glow);el.hidden=false;
     document.documentElement.classList.add('super-cut');
+  }
+
+  /** 보스 카드: 이름과 부제가 한 글자씩 */
+  revealSuper(progress:number):void {
+    if(!this.superText)return;
+    const [name,subtitle]=this.superText,total=name!.length+subtitle!.length,shown=Math.floor(Math.min(1,progress)*total);
+    document.querySelector('#superName')!.textContent=name!.slice(0,shown);
+    document.querySelector('#superLine')!.textContent=subtitle!.slice(0,Math.max(0,shown-name!.length));
   }
 
   hideSuper():void {
@@ -287,8 +355,10 @@ export class Ui {
 
   /* ── 전투 중 세나 훈수: 왼쪽 아래, 작은 얼굴 + 한 줄 ── */
 
-  say(text: string, face: Expr): void {
-    this.hintText.textContent = text;
+  /** quick: 세나의 상황 대사. 『』로 묶고 1.8초만 보인다 */
+  say(text: string, face: Expr, quick = false): void {
+    this.hintText.textContent = quick ? `『${text}』` : text;
+    this.hint.classList.toggle('is-quick', quick);
     setSrc(this.hintFace, portrait('sena', face));
     this.hint.classList.remove('is-on');
     void this.hint.offsetWidth;
