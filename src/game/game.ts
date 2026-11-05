@@ -11,7 +11,7 @@ import { PROP_IDS, SPRITES, glow, tint, type Sprite } from './sprites';
 import type { ComboHud, EnemyInfo, Inventory, PickupPrompt, Ui } from './ui';
 import { ECLIPSE_BURST, ECLIPSE_REACH, REAPER_SWING, SUPERS, SWORD_DROP, WAVE_SPEED, drawCutIn, drawSuperFx, type Cut, type SuperFx, type SuperKind } from './supers';
 import { PixelLayer, actorFromSprite } from './pixelfx';
-import { LINE_FACE, OPENING, SPEAKER_NAME, pickLine, type LineKey, type Talk } from './lines';
+import { LINE_FACE, OPENING, SPEAKER_NAME, pickLine, tutorialLines, type LineKey, type Talk, type TutorialKey } from './lines';
 import type { PxActor, PxInstance } from '../vendor/pixelfx/core/index.js';
 import { HOME, Opening, drawEntranceGlow, drawHomeRoom } from './opening';
 import { ART, MONSTER_VFX } from './assets';
@@ -40,6 +40,8 @@ const PLAYER_HP = 100;
 const MAX_HP_CAP = 160;
 const MAX_ENERGY_CAP = 130;
 const INVULN = 1.1;
+/** 1스테이지는 튜토리얼: 적 체력과 받는 피해를 낮춘다 */
+const TUTORIAL_STAGE = 1, TUTORIAL_HP = 0.6, TUTORIAL_DAMAGE = 0.5;
 /** 대시: 짧게 튀어나가고 0.3초 무적, 재사용 1초 */
 const DASH_TIME = 0.14, DASH_SPEED = 400, DASH_INVULN = 0.3, DASH_COOLDOWN = 1;
 /** 스테이지마다 오르는 공격력 */
@@ -222,6 +224,10 @@ export class Game {
   private comboHinted = false;
   private ringHinted = false;
   private dashCd = 0;
+  /** 이 탭에서 이미 들은 설명. 쓰러져 다시 시작해도 반복하지 않는다. */
+  private readonly tutorialSeen = new Set<TutorialKey>();
+  /** 문을 지나 걸어 들어오는 중: 테스트나 복원으로 방을 여는 경우엔 설명하지 않는다 */
+  private walkingIn = false;
   /** 세로 조작에서 스킬을 끄는 동안 보여주는 조준점 */
   private aimPreview: { x: number; y: number; cancel: boolean } | null = null;
   /** 이번 판에 얻은 아이템 수 */
@@ -570,6 +576,8 @@ export class Game {
     return body;
   }
 
+  private get enemyHpScale(): number { return this.stage.number === TUTORIAL_STAGE ? TUTORIAL_HP : 1; }
+
   private makeEnemy(kind: EnemyKind, x: number, y: number, spawnT: number): Enemy {
     const s = ENEMY_STATS[kind];
     const initial: Readonly<Record<EnemyKind, EnemyState>> = {
@@ -579,7 +587,7 @@ export class Game {
       effects: {}, burnTick: 0,
       id: this.nextId++, kind,
       x, y, vx: 0, vy: 0, r: s.r,
-      hp: s.hp * 10 * (1 + (this.stage.number - 1) * 0.05), maxHp: s.hp * 10 * (1 + (this.stage.number - 1) * 0.05), weight: s.weight, warmth: s.warmth,
+      hp: s.hp * 10 * (1 + (this.stage.number - 1) * 0.05) * this.enemyHpScale, maxHp: s.hp * 10 * (1 + (this.stage.number - 1) * 0.05) * this.enemyHpScale, weight: s.weight, warmth: s.warmth,
       spawnT, spawnMax: spawnT,
       state: initial[kind], t: rand(0.2, 0.9), a: 0, n: 0,
       flash: 0, squash: 0,
@@ -797,6 +805,21 @@ export class Game {
     }
   }
 
+  /** 1스테이지에서 상황마다 한 번씩 세나가 설명한다. 대화 중에는 세상이 멈춘다. */
+  private tutorial(key: TutorialKey, onDone: () => void = () => undefined): void {
+    if (this.stage.number !== TUTORIAL_STAGE || this.tutorialSeen.has(key) || this.mode !== 'play') { onDone(); return; }
+    this.tutorialSeen.add(key);
+    this.startTalk(tutorialLines(key, window.matchMedia('(pointer: coarse)').matches), onDone);
+  }
+
+  private roomTutorial(room: Room): void {
+    if (room.kind === 'boss') this.tutorial('boss');
+    else if (room.kind === 'spirit') this.tutorial('spirit');
+    else if (room.cleared) return;
+    else if (this.hasSpirit) this.tutorial('skills');
+    else this.tutorial('forms');
+  }
+
   private updateSlide(dt: number): void {
     const s = this.slide;
     if (!s) {
@@ -808,9 +831,12 @@ export class Game {
     if (s.t >= 1) {
       this.slide = null;
       this.mode = 'play';
+      this.walkingIn = true;
       this.enterRoom(s.to, s.dir);
+      this.walkingIn = false;
       // 현관을 나와 처음 들어선 심상세계: 첫 대사창. 끝나야 그늘이 움직인다.
       if (s.from.kind === 'home') this.startTalk(OPENING, () => undefined);
+      else this.roomTutorial(s.to);
     }
   }
 
@@ -955,7 +981,7 @@ export class Game {
       this.fx.ring(CX, CY, 34, 0.5);
       this.ui.say('방 한가운데에 뭔가 떠올랐어.', 'smile');
     }
-    if (this.room.kind === 'normal') this.say('clear', true);
+    if (this.room.kind === 'normal') { this.say('clear', true); this.tutorial('clear'); }
     this.sfx.play('open');
     if (this.room.kind === 'spirit' && this.spirit?.state === 'hidden') {
       this.spirit.state = 'waiting';
@@ -1159,7 +1185,7 @@ export class Game {
       room.rewarded = true; this.player.armor = Math.min(3, this.player.armor + 1);
       this.startTalk([{who:'yunseul',face:'troubled',text:CHAPTERS[this.stage.chapter - 1]!.after},{who:'sena',face:'smile',text:'지나간 기억이야. 네 잘못이 아니었어. 이제 한 번은 내가 막아줄게.'}],()=>{});
     } else if (room.kind === 'shop') {
-      this.openShop(room);
+      if (this.walkingIn) this.tutorial('shop', () => this.openShop(room)); else this.openShop(room);
     }
   }
 
@@ -2318,6 +2344,7 @@ export class Game {
     if(p.effects.mark)damage*=1.2;
     const enraged=this.enemies.some(e=>e.boss&&BOSSES[e.boss.id].enrage>0&&e.boss.elapsed>BOSSES[e.boss.id].enrage);
     if(enraged)damage*=1.5;
+    if(this.stage.number===TUTORIAL_STAGE)damage*=TUTORIAL_DAMAGE;
     p.hp -= damage;
     p.invuln = INVULN;
     if(p.fireArmor>0)for(const enemy of this.activeEnemies())if(dist(enemy.x,enemy.y,p.x,p.y)<enemy.r+35){this.applyStatus(enemy,'burn',3);this.hitEnemy(enemy,damage*0.2,angleTo(p.x,p.y,enemy.x,enemy.y),20,true);}
@@ -2338,6 +2365,7 @@ export class Game {
       this.say('hurt');
     }
     if (p.hp <= 0) this.playerDown();
+    else this.tutorial('hurt');
     return true;
   }
 
@@ -2544,7 +2572,7 @@ export class Game {
 
   private makeBoss(id: BossId,x: number,y: number,main: boolean): Enemy {
     const enemy=this.makeEnemy('alarm',x,y,0.9),spec=BOSSES[id];
-    enemy.boss=newBoss(id,main);enemy.hp=enemy.maxHp=spec.hp;enemy.r=main?20:16;enemy.weight=20;enemy.warmth=main?8:5;
+    enemy.boss=newBoss(id,main);enemy.hp=enemy.maxHp=spec.hp*this.enemyHpScale;enemy.r=main?20:16;enemy.weight=20;enemy.warmth=main?8:5;
     enemy.state='idle';enemy.t=1;
     const chapter=CHAPTERS[spec.chapter-1]!;
     enemy.spriteId=spec.asset??chapter.enemies[id==='great_heavy'||id==='bedroom'?1:0];

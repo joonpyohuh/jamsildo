@@ -32,6 +32,48 @@ export const OPENING: readonly Talk[] = [
   { who: 'sena', text: '휴대폰은 왼쪽 조이스틱으로 이동해. 컴퓨터는 방향키나 바닥 우클릭이야. 적을 좌클릭하면 정보가 보여. 움직이면서 공격해.', face: 'smile' },
 ];
 
+export type TutorialKey = 'forms' | 'hurt' | 'clear' | 'shop' | 'spirit' | 'skills' | 'boss';
+
+/** 1스테이지에서 상황마다 한 번씩 나오는 세나의 설명. 조작 이름만 기기에 맞춰 바뀐다. */
+export function tutorialLines(key: TutorialKey, touch: boolean): readonly Talk[] {
+  const say = (text: string, face: Expr = 'flat'): Talk => ({ who: 'sena', text, face });
+  const pick = touch ? '공격 버튼' : '스페이스바(Space)';
+  switch (key) {
+    case 'forms': return [
+      say('내 모양은 적과의 거리로 바뀌어. 가까우면 단검, 바짝 붙으면 너클, 멀면 활이야.'),
+      say('가까이 둘 이상 있으면 장검으로 한 번에 벤다. 넌 위치만 잡아. 나머진 내가 해.', 'smile'),
+      say(touch ? '공격 버튼을 누른 채로 조이스틱을 움직여. 멈춰 서서 치면 맞는다.' : '공격은 Space를 꾹 누르거나 적을 우클릭해. 지정한 뒤 방향키로 피해도 계속 쳐.'),
+    ];
+    case 'hurt': return [
+      say('맞았지? 하트가 네 체력이야. 다 없어지면 쓰러져.', 'angry'),
+      say('맞은 직후엔 잠깐 무적이야. 그 틈에 빠져나와. 붉게 표시되는 곳은 곧 공격이 들어오는 자리고.'),
+    ];
+    case 'clear': return [
+      say('봐, 그늘을 다 마주하면 문이 열려. 체력이랑 기력도 조금 차.', 'smile'),
+      say('떨어진 빛은 온기야. 가게에서 돈처럼 써. 미니맵엔 가본 방만 보이니까 문을 하나씩 열어봐.'),
+      say('이 층 어딘가에 보스방이 있어. 거길 넘어야 다음 스테이지로 가. 가게랑 정령방부터 들르는 게 좋아.'),
+    ];
+    case 'shop': return [
+      say('여긴 가게야. 온기로 물건을 사. 품목마다 한 번씩 살 수 있어.', 'smile'),
+      say(touch ? '산 건 일시정지 메뉴의 아이템에서 볼 수 있어. 지금 온기가 모자라면 나중에 다시 와도 돼.' : '산 건 I를 누르면 볼 수 있어. 지금 온기가 모자라면 나중에 다시 와도 돼.'),
+    ];
+    case 'spirit': return [
+      say('정령방이야. 지키는 놈을 넘기면 가운데에 정령이 나타나.'),
+      say('정령은 세 마리까지 데리고 다녀. 고르면 스킬을 쓸 수 있어. 저놈, 평범한 그늘보다 세니까 조심해.', 'troubled'),
+    ];
+    case 'skills': return [
+      say(touch ? 'Q W E 버튼이 정령 스킬이야. 탭하면 가까운 적에게, 끌면 원하는 곳에 나가.' : 'QWER이 정령 스킬이야. 가까운 적에게 알아서 나가.'),
+      say('기력을 쓰고, 기력은 천천히 차. 스킬은 쓸수록 정령이 자라고, 중급이 되면 R 초필살기가 열려.', 'smile'),
+      say(touch ? '정령이 둘이면 교체 버튼으로 바꿔. 쿨타임은 정령마다 따로 돌아.' : '정령이 둘이면 Tab으로 바꿔. 쿨타임은 정령마다 따로 돌아.'),
+    ];
+    case 'boss': return [
+      say('보스야. 위에 체력바가 보이지? 패턴마다 공격 전에 바닥이나 선으로 예고가 나와.', 'troubled'),
+      say('보스 둘레에 붉은 원이 뜨면 탄이 그 원에서 퍼져 나가. 안쪽에 붙어 있으면 안 맞아.'),
+      say(`이기면 아이템이 떨어져. 가까이 가서 ${pick}를 눌러야 주워져. 주워야 다음으로 넘어가.`, 'smile'),
+    ];
+  }
+}
+
 /** 불의 정령을 얻었을 때 */
 export const FIRE_SPIRIT_TAKEN: readonly Talk[] = [
   { who: 'sena', text: '불의 정령이네. 이제 네 곁을 따라다니며 불 스킬을 빌려줄 거야.', face: 'smile' },

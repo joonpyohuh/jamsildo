@@ -62,7 +62,7 @@ const fs=require('node:fs/promises');
    const g=window.__jamsildo;let patterns=0,skills=0;
    for(let number=1;number<=20;number++){
     g.debugStage(number);g.enterRoom(g.stage.boss,null);const boss=g.enemies.find(e=>e.boss?.main);
-    if(!boss||boss.boss.id!==g.stage.bossId||boss.hp!==BOSSES[g.stage.bossId].hp)throw Error(`boss data ${number}`);
+    if(!boss||boss.boss.id!==g.stage.bossId||boss.hp!==BOSSES[g.stage.bossId].hp*(number===1?0.6:1))throw Error(`boss data ${number}`);
     g.player.invuln=10000;
     for(const pattern of BOSSES[boss.boss.id].patterns){
      g.enemies=[boss];boss.faced=false;boss.hp=boss.maxHp;boss.boss.invulnerable=false;boss.boss.phase=0;boss.boss.elapsed=0;boss.boss.flags.clear();boss.effects={};
@@ -91,7 +91,7 @@ const fs=require('node:fs/promises');
     if(g.player.hp>100||!Number.isFinite(g.player.hp))throw Error(`heal ${element} ${key}`);
     skills++;
    }
-   g.debugStage(1);g.player.invuln=0;g.enemies=[];g.player.x=240;g.player.y=150;
+   g.debugStage(2);g.player.invuln=0;g.enemies=[];g.player.x=240;g.player.y=150;
    g.addZone({x:240,y:150,r:40,warning:1,life:0.3,damage:25});g.updateZones(0.6);
    if(g.player.hp!==100)throw Error('damage before telegraph');g.updateZones(0.5);if(g.player.hp!==75)throw Error('hazard missing damage');
    g.player.effects={};g.player.invuln=0;g.player.armor=1;g.hurtPlayer(240,100,30,true);if(g.player.hp!==75||g.player.armor!==0)throw Error('armor');
@@ -101,6 +101,7 @@ const fs=require('node:fs/promises');
    const wall=g.addZone({x:280,y:150,shape:'wall',width:12,length:96,owner:'player',hp:50,life:6});if(!contains(wall,280,150)||contains(wall,300,150))throw Error('wall geometry');
    g.equipped.length=0;g.equipped.push(newSpirit('fire'),newSpirit('water'));g.equipped[0].cooldowns.q=3;g.activeSpirit=0;g.switchCd=0;g.cycleSpirit();
    if(g.activeSpirit!==1||g.equipped[0].cooldowns.q!==3)throw Error('independent cooldown');
+   for(const key of ['hurt','clear'])g.tutorialSeen.add(key); // 대화창이 뜨면 전투 시뮬레이션이 멈춘다
    g.debugStage(1);g.enterRoom(g.stage.start,null);g.enemies=[g.makeEnemy('bother',g.player.x+65,g.player.y,0)];g.enemies[0].effects.root=60;g.attackUnlocked=true;g.input.attackHeld=true;
    for(let i=0;i<500&&!g.room.cleared;i++)g.update(0.05);
    if(!g.room.cleared||g.player.hp<=0)throw Error('basic weapon combat cannot clear a room');
