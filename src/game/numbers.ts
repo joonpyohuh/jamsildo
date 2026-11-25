@@ -1,5 +1,5 @@
 /** 피해 숫자. 객체를 재사용하고, 40개를 넘으면 가장 오래된 것부터 지운다. */
-export type NumberKind = 'hit' | 'crit' | 'burn' | 'execute' | 'player' | 'heal' | 'curse';
+export type NumberKind = 'hit' | 'crit' | 'burn' | 'execute' | 'player' | 'heal' | 'curse' | 'companion';
 
 const STYLE: Readonly<Record<NumberKind, { color: string; size: number; label?: string }>> = {
   hit: { color: '#ffffff', size: 10 },
@@ -8,6 +8,7 @@ const STYLE: Readonly<Record<NumberKind, { color: string; size: number; label?: 
   execute: { color: '#b88aff', size: 15, label: '처형' },
   player: { color: '#ff5a5a', size: 10 },
   heal: { color: '#6fe08a', size: 10 },
+  companion: { color: '#cfd5de', size: 8 },
   curse: { color: '#6a6870', size: 8 },
 };
 const LIMIT = 40, LIFE = 0.6, RISE = 24, SPREAD = 8, POP = 0.1;

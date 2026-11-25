@@ -71,12 +71,6 @@ const ATTACK: Readonly<Record<FormId, Track>> = {
     [0.45, { push: 1, lean: 0.08 }],
     [1, {}],
   ],
-  knuckle: [
-    [0, { push: -2, lean: -0.1, sx: 0.93, sy: 1.06 }],
-    [0.14, { push: 5, lean: 0.26, sx: 1.16, sy: 0.88 }, 'snap'],
-    [0.55, { push: 2, lean: 0.1 }],
-    [1, {}],
-  ],
   bow: [
     [0, { push: -1, lean: -0.05, sy: 1.03 }],
     [0.3, { push: -3, lean: -0.16, sx: 1.06, sy: 0.95 }, 'snap'],

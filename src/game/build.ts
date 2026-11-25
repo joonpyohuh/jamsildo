@@ -15,7 +15,7 @@ export const ARTIFACTS: Readonly<Record<ArtifactId, ArtifactSpec>> = artifactDat
 export const ARTIFACT_IDS = Object.keys(ARTIFACTS) as ArtifactId[];
 export type Owned = Partial<Record<ArtifactId, number>>;
 
-export type FormBoost = 'dagger' | 'sword' | 'bow' | 'knuckle';
+export type FormBoost = 'dagger' | 'sword' | 'bow';
 export interface Mods extends Record<AugmentStat, number> { forms: FormBoost[] }
 export const newMods = (): Mods => ({ attackFlat: 0, maxHp: 0, energyRegen: 0, moveSpeed: 0, critChance: 0, cooldown: 0, dashCooldown: 0, maxEnergy: 0, attackPct: 0, critDamage: 0, formBoost: 0, lastStand: 0, forms: [] });
 

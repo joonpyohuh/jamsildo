@@ -2,7 +2,7 @@
  * 세나의 형태.
  * 플레이어는 공격 버튼 하나만 누른다. 형태 선택은 세나의 몫 — "세나가 몸을 끌고 간다".
  */
-export type FormId = 'dagger' | 'sword' | 'bow' | 'knuckle';
+export type FormId = 'dagger' | 'sword' | 'bow';
 
 export interface FormSpec {
   id: FormId;
@@ -35,10 +35,6 @@ export const FORMS: Readonly<Record<FormId, FormSpec>> = {
     id: 'bow', label: '활', cooldown: 0.62, range: 0, arc: 0,
     damage: 8, knockback: 40, hitstop: 0.04, shake: 0.8, lunge: 0, swing: 0.14,
   },
-  knuckle: {
-    id: 'knuckle', label: '너클', cooldown: 0.3, range: 30, arc: Math.PI * 0.7,
-    damage: 15, knockback: 330, hitstop: 0.04, shake: 4.5, lunge: 0, swing: 0.12,
-  },
 };
 
 /**
@@ -55,7 +51,6 @@ export function formFor(id: FormId, stage: number): FormSpec {
 
 /** 판정 거리. 적의 '가장자리'까지의 거리 기준. */
 export const SENSE = {
-  touch: 13,
   /** 58→74: 단검이 더 멀리서 몸을 끌어당긴다 → 활이 덜 나온다 */
   near: 74,
   cluster: 64,
@@ -75,9 +70,8 @@ export interface FormChoice<T extends Target> {
 /**
  * 형태 판정 우선순위 (기획서 '보완 필요' 항목에 대한 1차안)
  *  1. 장검 — 가까운 거리에 적이 둘 이상. 여럿을 한 번에 베는 게 가장 이득이라 최우선.
- *  2. 너클 — 적이 바짝 붙음. 밀쳐내서 숨 쉴 거리를 만든다.
- *  3. 단검 — 가까운 적이 하나. 세나가 몸을 끌어당기며 연타.
- *  4. 활   — 그 외 (멀리 있음).
+ *  2. 단검 — 가까운 적이 하나. 세나가 몸을 끌어당기며 연타.
+ *  3. 활   — 그 외 (멀리 있음).
  */
 export function chooseForm<T extends Target>(
   px: number,
@@ -100,7 +94,6 @@ export function chooseForm<T extends Target>(
 
   if (!nearest) return { form: fallback, target: null };
   if (clustered >= 2) return { form: 'sword', target: nearest };
-  if (nearestEdge <= SENSE.touch) return { form: 'knuckle', target: nearest };
   if (nearestEdge <= SENSE.near) return { form: 'dagger', target: nearest };
   return { form: 'bow', target: nearest };
 }

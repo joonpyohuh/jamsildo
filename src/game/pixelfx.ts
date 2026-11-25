@@ -11,7 +11,6 @@ import {
 import * as swordSlash from '../vendor/pixelfx/fx/melee/sword-slash.js';
 import * as thrust from '../vendor/pixelfx/fx/melee/thrust.js';
 import * as hitSpark from '../vendor/pixelfx/fx/impacts/hit-spark.js';
-import * as bluntHit from '../vendor/pixelfx/fx/impacts/blunt-hit.js';
 import * as critHit from '../vendor/pixelfx/fx/impacts/crit-hit.js';
 import * as impactFrame from '../vendor/pixelfx/fx/impacts/impact-frame.js';
 import * as soulRise from '../vendor/pixelfx/fx/spawn/soul-rise.js';
@@ -180,13 +179,6 @@ export class PixelLayer {
   /** 단검: 손에서 뻗는 찌르기 다발 */
   thrust(x: number, footY: number, aim: number, reach: number): void {
     this.spawn(thrust, { x, y: footY + 8, ...facing(aim, 0.9), palette: SENA_7, sparks: SENA_SPARKS, reach, light: 0.6 });
-  }
-
-  /** 너클: 둔탁한 타격 */
-  blunt(x: number, y: number, height: number): void {
-    this.spawn(bluntHit, {
-      x, y: y + height, palette: SENA_7, warm: '#cdd7ea', dust: '#6b707a', clod: '#3a3e46', height, light: 0.5,
-    });
   }
 
   /* ── 맞는 순간 ── */

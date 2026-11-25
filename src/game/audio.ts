@@ -3,7 +3,7 @@
  * 베는 소리 = 노이즈 스윕, 맞는 소리 = 저음 낙하 + 짧은 클릭. 타격감의 절반은 소리다.
  */
 export type SfxName =
-  | 'swing' | 'swingBig' | 'hit' | 'hitBig' | 'punch' | 'bow' | 'arrowHit'
+  | 'swing' | 'swingBig' | 'hit' | 'hitBig' | 'bow' | 'arrowHit'
   | 'face' | 'hurt' | 'lock' | 'open' | 'pickup' | 'morph'
   | 'alarm' | 'beep' | 'tear' | 'spawn' | 'thud' | 'quiet'
   | 'blip' | 'fireball' | 'fireHit' | 'flame' | 'spirit' | 'ult';
@@ -98,10 +98,6 @@ export class Sfx {
         this.tone('square', 650, 200, 0.05, 0.08);
         this.noise(0.09, 0.36, 900, 280, 1.1);
         this.tone('sine', 125, 38, 0.15, 0.45);
-        break;
-      case 'punch':
-        this.noise(0.06, 0.34, 700, 200, 0.8, 0, 'lowpass');
-        this.tone('sine', 115, 34, 0.17, 0.55);
         break;
       case 'bow':
         this.tone('triangle', 520, 980, 0.05, 0.12);

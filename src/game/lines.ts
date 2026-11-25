@@ -8,7 +8,7 @@ import senaLines from './dialogue/sena.json';
 export type LineKey =
   | keyof typeof senaLines
   | 'start' | 'low'
-  | 'dagger' | 'sword' | 'bow' | 'knuckle'
+  | 'dagger' | 'sword' | 'bow'
   | 'spiritRoom' | 'spiritReady' | 'skillHint' | 'goOut' | 'firstAttack'
   | 'bossIntro' | 'bossIntroFire' | 'bossSnooze' | 'super' | 'combo';
 
@@ -30,7 +30,7 @@ export const OPENING: readonly Talk[] = [
   { who: 'yunseul', text: '여기가 어디지..?', face: 'blank' },
   { who: 'sena', text: '야 여기 니 심상세계야. 정신차리고 빨리 싸워.', face: 'angry' },
   { who: 'yunseul', text: '잠깐, 내 손에 있는 이 무기는...?', face: 'troubled' },
-  { who: 'sena', text: '나야, 세나. 네 손에 든 무기가 나라고. 단검, 장검, 활, 너클 중에 네가 골라.', face: 'flat' },
+  { who: 'sena', text: '나야, 세나. 네 손에 든 무기가 나라고. 단검, 장검, 활 중에 네가 골라.', face: 'flat' },
   { who: 'sena', text: '공격은 적을 우클릭하거나 F를 꾹 눌러. Space는 대시야, 짧게 튀어나가면서 잠깐 안 맞아. 휴대폰은 공격·대시 버튼이야.', face: 'flat' },
   { who: 'sena', text: '휴대폰은 왼쪽 조이스틱으로 이동해. 컴퓨터는 방향키나 바닥 우클릭이야. 적을 좌클릭하면 정보가 보여. 움직이면서 공격해.', face: 'smile' },
 ];
@@ -43,8 +43,8 @@ export function tutorialLines(key: TutorialKey, touch: boolean): readonly Talk[]
   const pick = touch ? '공격 버튼' : '스페이스바(Space)';
   switch (key) {
     case 'forms': return [
-      say(touch ? '무기는 네가 골라. 위쪽 버튼으로 단검, 장검, 활, 너클을 바꿔.' : '무기는 네가 골라. 1 단검, 2 장검, 3 활, 4 너클.'),
-      say('단검은 빠르고, 장검은 넓고, 활은 멀리, 너클은 세게 밀어내. 상황 봐서 바꿔.', 'smile'),
+      say(touch ? '무기는 네가 골라. 위쪽 버튼으로 단검, 장검, 활을 바꿔.' : '무기는 네가 골라. 1 단검, 2 장검, 3 활.'),
+      say('단검은 빠르고, 장검은 넓고, 활은 멀리. 상황 봐서 바꿔.', 'smile'),
       say(touch ? '공격 버튼을 누른 채로 조이스틱을 움직여. 탄이 오면 대시 버튼으로 빠져.' : '공격은 F를 꾹 누르거나 적을 우클릭해. Space는 대시야. 탄이 오면 튀어나가.'),
     ];
     case 'hurt': return [
@@ -96,7 +96,6 @@ export const LINES: Readonly<Record<LineKey, readonly string[]>> = {
   dagger: ['가까워. 짧게 간다.'],
   sword: ['여럿이네. 크게 벤다.'],
   bow: ['멀어. 쏠게.'],
-  knuckle: ['붙지 마. 밀어낸다.'],
   bossIntro: ['뭐야.. 시계? 넌 알람소리가 그렇게 싫었냐?'],
   goOut: ['뭐 해. 나가.'],
   firstAttack: ['적을 우클릭하거나, F나 공격 버튼을 꾹 눌러.'],
@@ -110,7 +109,7 @@ export const LINES: Readonly<Record<LineKey, readonly string[]>> = {
 /** 세나 훈수의 표정 */
 export const LINE_FACE: Readonly<Partial<Record<LineKey, Expr>>> = {
   start: 'blank', enter: 'flat', clear: 'smile', hurt: 'angry', low: 'troubled', crit: 'smile', streak: 'laugh', curse: 'troubled', awaken: 'angry', rest: 'smile', prism: 'laugh',
-  dagger: 'flat', sword: 'flat', bow: 'flat', knuckle: 'flat',
+  dagger: 'flat', sword: 'flat', bow: 'flat',
   spiritRoom: 'blank', spiritReady: 'smile', skillHint: 'smile', goOut: 'flat', firstAttack: 'flat',
   bossIntro: 'flat', bossIntroFire: 'flat', bossSnooze: 'angry', bossFaced: 'smile',
   super: 'flat', combo: 'smile',

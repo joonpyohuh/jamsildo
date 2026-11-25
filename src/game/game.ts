@@ -5,6 +5,7 @@ import { TAU, angleDiff, angleTo, clamp, dist, easeInOut, easeOut, rand, seeded 
 import type { Sfx } from './audio';
 import { Fx, drawDigits, pixelArc, pixelEllipse, pixelLine, plot } from './fx';
 import { FORMS, chooseForm, formFor, type FormId, type FormSpec } from './forms';
+import { COMPANION, aimCompanion, companionSprite, newCompanion, walkCompanion, type Companion } from './companion';
 import { DIRS, DIR_KEYS, generateStage, restoreStage, makeHomeRoom, neighborOf, type Dir, type EnemyKind, type Room, type Stage } from './stage';
 import { readSave, writeSave } from './storage';
 import { PROP_IDS, SPRITES, glow, tint, type Sprite } from './sprites';
@@ -131,7 +132,7 @@ interface Bullet {
   life: number; damage: number;
   owner: 'player' | 'enemy';
   /** fire: 정령 불덩이(pixelfx), ember: 불붙은 알람의 불씨 */
-  style: 'arrow' | 'tear' | 'note' | 'fire' | 'ember' | 'slash' | 'dark' | 'bubble' | 'shadow';
+  style: 'arrow' | 'tear' | 'note' | 'fire' | 'ember' | 'slash' | 'dark' | 'bubble' | 'shadow' | 'companion';
   /** 어둠덩이: 수명이 다하면 이 수만큼 파편으로 터진다 */
   burst?: number;
   /** 초당 꺾이는 각도 (약한 유도) */
@@ -170,11 +171,11 @@ interface Strike { t: number; form: FormId; aim: number }
 interface Vfx { id: string; x: number; y: number; t: number; life: number; angle: number; scale: number; alpha: number; rise: number; follow: boolean }
 /** 진행 방향이 있는 그림 (오른쪽을 향해 그려져 있다) */
 const AIMED_PANELS = new Set([
-  'fire_dagger', 'fire_bow', 'fire_knuckle', 'water_dagger', 'water_bow', 'water_knuckle',
+  'fire_dagger', 'fire_bow', 'water_dagger', 'water_bow', 'water_knuckle',
   'wood_bow', 'dark_dagger', 'dark_bow', 'light_dagger', 'light_bow', 'chaos_prismatic_shadow_ray',
 ]);
 const CHAOS_PANELS = ['fire_water_collision', 'wood_lightning_burst', 'prismatic_shadow_ray', 'cosmic_chaos_ring'] as const;
-const WEAPON_PANEL: Readonly<Record<FormId, string>> = { dagger: 'dagger', sword: 'longsword', bow: 'bow', knuckle: 'knuckle' };
+const WEAPON_PANEL: Readonly<Record<FormId, string>> = { dagger: 'dagger', sword: 'longsword', bow: 'bow' };
 interface Slide { from: Room; to: Room; dir: Dir; t: number }
 interface Relic { x: number; y: number; t: number }
 /** 스테이지를 깰 때마다 하나: 기력의 결정(최대 기력) 또는 심장 조각(최대 체력) */
@@ -356,6 +357,8 @@ export class Game {
 
   /* 정령 동행 */
   private spirit: Spirit | null = null;
+  /** 처음부터 함께 걷는 하얀 정령 */
+  private companion: Companion = newCompanion(CX, CY);
   hasSpirit = false;
   private flames: Flame[] = [];
   private skillHinted = false;
@@ -611,6 +614,7 @@ export class Game {
       this.enemyHold = 0;
     }
 
+    this.companion = newCompanion(p.x, p.y);
     this.doorOpen = 1;
     if (this.spirit?.state === 'following') {
       this.spirit.x = p.x - p.facing * 12;
@@ -702,7 +706,7 @@ export class Game {
   private get dashCooldown(): number { return DASH_COOLDOWN * (1 - Math.min(0.6, this.mods.dashCooldown)) * (this.has('worn_shoes') ? 0.7 : 1); }
   get dashRatio(): number { return this.dashCd / this.dashCooldown; }
 
-  /** 1~4 · 무기 버튼: 세나의 형태를 고른다 */
+  /** 1~3 · 무기 버튼: 세나의 형태를 고른다 */
   selectWeapon(form: FormId): void {
     if (this.weapon === form) return;
     this.weapon = form;
@@ -867,6 +871,7 @@ export class Game {
       this.updateFlames(dt);
       this.updateOrbs(dt);
       this.updateSpirit(dt);
+      this.updateCompanion(dt);
       this.updateZones(dt);
       this.updateSupers(dt);
       this.updateRun(dt);
@@ -915,7 +920,7 @@ export class Game {
       this.attackUnlocked = true;
       this.say('start', true);
       this.firstAttackT = 3.2;
-      this.ui.center(window.matchMedia('(pointer: coarse)').matches ? '공격 버튼을 꾹 누르세요' : '적을 우클릭하거나 F로 공격 · 1~4 무기 · Space 대시');
+      this.ui.center(window.matchMedia('(pointer: coarse)').matches ? '공격 버튼을 꾹 누르세요' : '적을 우클릭하거나 F로 공격 · 1~3 무기 · Space 대시');
       if (this.room.kind === 'home') this.tutorial('forms');
     }
     if (this.room.kind === 'home') {
@@ -1156,6 +1161,22 @@ export class Game {
       s.x += (tx - s.x) * k;
       s.y += (ty - s.y) * k;
     }
+  }
+
+  /** 하얀 정령: 옆에서 걷다가 사거리 안의 그늘에 평타를 쏜다 */
+  private updateCompanion(dt: number): void {
+    const c = this.companion;
+    walkCompanion(c, this.player, dt);
+    if (!this.attackUnlocked || this.endingT >= 0) return;
+    // 때리면 윤슬이 다치는 가짜는 노리지 않는다
+    const target = aimCompanion(c, this.activeEnemies().filter(e => e.tag !== 'decoy' && e.tag !== 'fakeDoor'));
+    if (!target) return;
+    const y = c.y + 4 - COMPANION.muzzle, a = angleTo(c.x, y, target.x, target.y - target.r * 0.6);
+    this.bullets.push({
+      x: c.x + c.facing * 5, y, vx: Math.cos(a) * COMPANION.shotSpeed, vy: Math.sin(a) * COMPANION.shotSpeed,
+      r: 3, life: COMPANION.shotLife, damage: COMPANION.damage, owner: 'player', style: 'companion',
+    });
+    this.fx.burst(c.x + c.facing * 6, y, a, 4, [COLOR.white, COLOR.sena], { spread: 0.8, speed: 60, life: 0.2 });
   }
 
   private takeSpirit(): void {
@@ -1461,7 +1482,7 @@ export class Game {
     if (stat === 'maxHp') this.changeMaxHp(card.value);
     else if (stat === 'maxEnergy') { p.maxEnergy = Math.min(MAX_ENERGY_CAP, p.maxEnergy + card.value); p.energy = p.maxEnergy; }
     else if (stat === 'formBoost') {
-      const left = (['dagger', 'sword', 'bow', 'knuckle'] as const).filter(form => !this.mods.forms.includes(form));
+      const left = (['dagger', 'sword', 'bow'] as const).filter(form => !this.mods.forms.includes(form));
       const form: FormBoost | undefined = left[Math.floor(Math.random() * left.length)];
       if (form) { this.mods.forms.push(form); this.ui.center(`${FORMS[form].label} 강화`); }
     } else this.mods[stat] += card.value;
@@ -2490,10 +2511,6 @@ export class Game {
     const foot = p.y + 4;
     if (s.form === 'sword') this.px.swordSlash(p.x, foot, s.aim, 40);
     if (s.form === 'dagger') this.px.thrust(p.x, foot, s.aim, spec.range + 6);
-    if (s.form === 'knuckle') {
-      this.px.blunt(p.x + Math.cos(s.aim) * 14, p.y - 8 + Math.sin(s.aim) * 10, 0);
-      this.sfx.play(hits ? 'punch' : 'swing');
-    }
     const panel = this.weaponPanel(s.form);
     if (panel) {
       const reach = Math.min(spec.range, 34);
@@ -2520,7 +2537,7 @@ export class Game {
       return faced;
     }
     const bonus = passive === 'water' ? 1.15 : passive === 'dark' && e.boss && e.hp / e.maxHp <= 0.2 ? 1.2 : 1;
-    const faced = this.hitEnemy(e, spec.damage * bonus, a, spec.knockback * (form === 'knuckle' && boosted ? 1.5 : 1));
+    const faced = this.hitEnemy(e, spec.damage * bonus, a, spec.knockback);
     if (passive === 'fire') this.applyStatus(e, 'burn', 3);
     if (passive === 'wood') { this.strikes += 1; if (this.strikes % 8 === 0) this.player.armor = Math.min(3, this.player.armor + 1); }
     if (passive === 'light') {
@@ -2538,9 +2555,9 @@ export class Game {
     if(e.armor){e.armor--;return false;}
     if(fire&&e.skillShield&&e.skillShield>0){e.skillShield=0;return false;}
     if(e.lightGuard&&e.lightGuard>0)damage*=0.5;
-    if(e.fireArmor&&e.fireArmor>0&&dist(e.x,e.y,this.player.x,this.player.y)<60){this.player.effects.burn=3;this.hurtPlayer(e.x,e.y,damage*0.2,true);}
+    if(this.hitKind!=='companion'&&e.fireArmor&&e.fireArmor>0&&dist(e.x,e.y,this.player.x,this.player.y)<60){this.player.effects.burn=3;this.hurtPlayer(e.x,e.y,damage*0.2,true);}
     if(e.tag==='decoy'){this.hurtPlayer(e.x,e.y,15,true);this.faceEnemy(e,false);return false;}
-    damage=fire?damage:(damage+this.mods.attackFlat)*this.attackPower;
+    damage=fire||this.hitKind==='companion'?damage:(damage+this.mods.attackFlat)*this.attackPower;
     if(e.effects.mark)damage*=1.2;
     if(this.has('empty_chair')&&this.activeEnemies().length===1)damage*=1.5;
     if(e.boss&&this.has('report_card'))damage*=1.35;
@@ -3441,13 +3458,20 @@ export class Game {
       if (alive && b.owner === 'player') {
         for (const e of this.activeEnemies()) {
           if(b.hit?.has(e.id))continue;
+          if(b.style==='companion'&&e.tag==='decoy')continue;
           if (dist(b.x, b.y, e.x, e.y - e.r * 0.6) > e.r + b.r) continue;
           const a = Math.atan2(b.vy, b.vx);
           if(e.boss&&['mirror','great_shard'].includes(e.boss.id)&&Math.abs(angleDiff(a+Math.PI,e.a))<(e.boss.id==='mirror'?Math.PI/2:Math.PI/3)){
+            if(b.style==='companion'){alive=false;break;}
             b.owner='enemy';b.vx*=-1;b.vy*=-1;b.damage=15;b.skill=true;b.hit?.clear();break;
           }
           b.hit?.add(e.id);
-          if (b.style === 'fire' || b.style === 'bubble' || b.style === 'shadow') {
+          if (b.style === 'companion') {
+            this.hitKind = 'companion';
+            this.hitEnemy(e, b.damage, a, COMPANION.knockback);
+            this.hitKind = 'hit';
+            this.sfx.play('arrowHit');
+          } else if (b.style === 'fire' || b.style === 'bubble' || b.style === 'shadow') {
             const el = b.element ?? 'fire';
             this.hitEnemy(e, b.damage, a, b.knock ?? 120, true, el);
             if(b.status)this.applyStatus(e,b.status,b.statusTime??3);
@@ -3590,6 +3614,9 @@ export class Game {
       for (const g of this.ghosts) list.push({ y: p.y - 0.5, draw: () => this.drawGhost(g) });
       list.push({ y: p.y, draw: () => this.drawPlayer() });
       if (this.senaShowT > 0) list.push({ y: p.y - 0.25, draw: () => this.drawSenaHuman() });
+      const c = this.companion;
+      pixelEllipse(ctx, c.x, c.y + 4, 5, 1.5, COLOR.shadow);
+      list.push({ y: c.y, draw: () => this.drawCompanion(c) });
       const ally = this.ally;
       if (ally) list.push({ y: ally.y, draw: () => this.drawAlly(ally) });
     }
@@ -4287,18 +4314,6 @@ export class Game {
         pixelLine(ctx, mx, my, e2x, e2y, COLOR.senaShade);
         break;
       }
-      case 'knuckle': {
-        const ext = 3 + pulse * 10;
-        const kx = Math.round(hx + c * ext) - 2;
-        const ky = Math.round(hy + s * ext) - 2;
-        ctx.fillStyle = COLOR.sena;
-        ctx.fillRect(kx, ky, 5, 4);
-        ctx.fillStyle = COLOR.senaShade;
-        ctx.fillRect(kx, ky + 3, 5, 1);
-        ctx.fillRect(kx + 1, ky + 1, 1, 1);
-        ctx.fillRect(kx + 3, ky + 1, 1, 1);
-        break;
-      }
     }
   }
 
@@ -4458,8 +4473,18 @@ export class Game {
     this.blit(spr, s.x, s.y + 8 + bob, { alpha: appear, sy: 0.6 + appear * 0.4, flip });
   }
 
+  private drawCompanion(c: Companion): void {
+    this.blit(companionSprite(c), c.x, c.y + 5, { flip: c.facing < 0, sy: c.shotT > 0 ? 0.85 : 1, sx: c.shotT > 0 ? 1.1 : 1 });
+  }
+
   private drawBullet(b: Bullet): void {
     const ctx = this.ctx;
+    if (b.style === 'companion') {
+      ctx.fillStyle = COLOR.senaShade;
+      for (let i = 1; i <= 3; i++) ctx.fillRect(Math.round(b.x - b.vx * 0.012 * i), Math.round(b.y - b.vy * 0.012 * i), 1, 1);
+      pixelEllipse(ctx, b.x, b.y, 2, 2, COLOR.white);
+      return;
+    }
     const loop = b.art ? ANIMS.get(b.art) : undefined;
     const loopFrame = loop?.at('loop', this.clock + b.x * 0.01);
     if (loop && loopFrame) {

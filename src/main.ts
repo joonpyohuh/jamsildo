@@ -423,7 +423,7 @@ uiEl.addEventListener('pointerdown', (e) => {
 
 /* ── 키보드: 방향키 이동, Space 공격, QWER 정령 스킬, Enter 진행 ── */
 const ATTACK_KEYS = new Set(['Space', 'KeyF']);
-const WEAPON_KEYS: Readonly<Record<string, FormId>> = { Digit1: 'dagger', Digit2: 'sword', Digit3: 'bow', Digit4: 'knuckle' };
+const WEAPON_KEYS: Readonly<Record<string, FormId>> = { Digit1: 'dagger', Digit2: 'sword', Digit3: 'bow' };
 const SKILL_KEYS: Readonly<Record<string, SkillKey>> = { KeyQ: 'q', KeyW: 'w', KeyE: 'e', KeyR: 'r' };
 const ARROW_KEYS: Readonly<Record<string, readonly [number, number]>> = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
 const heldArrows = new Set<string>();
