@@ -51,7 +51,7 @@ const fs=require('node:fs/promises');
     g.player.y=dy<0?FLOOR.y+g.player.r:dy>0?FLOOR.y+FLOOR.h-g.player.r:CY;
     g.input.move={x:dx,y:dy};g.updatePlayer(0.5);g.checkExit();if(g.mode!=='slide')throw Error(`joystick cannot leave ${dir} door`);doors++;
    }
-   const {HOME}=await import('/src/game/opening.ts');g.startRun();reset();g.player.x=HOME.door.x+HOME.door.w/2;g.player.y=FLOOR.y+FLOOR.h-5;g.input.move={x:0,y:1};
+   const {HOME}=await import('/src/game/opening.ts');g.startRun();reset();g.enemies=[];g.room.cleared=true;g.player.x=HOME.door.x+HOME.door.w/2;g.player.y=FLOOR.y+FLOOR.h-5;g.input.move={x:0,y:1};
    for(let i=0;i<20&&g.mode==='play';i++){g.updatePlayer(0.016);g.checkExit();}
    if(g.mode!=='slide')throw Error('joystick cannot leave home over multiple frames');
    g.input.move={x:0,y:0};return doors;
@@ -81,7 +81,7 @@ const fs=require('node:fs/promises');
    }
    for(const element of ['water','wood','fire','dark','light','chaos'])for(const key of ['q','w','e','r']){
     g.debugStage(10);g.player.maxEnergy=g.player.energy=100;g.player.invuln=10000;g.player.hp=20;
-    const slot=newSpirit(element);slot.tier=3;g.equipped.push(slot);g.hasSpirit=true;
+    const slot=newSpirit(element);slot.tier=3;g.equipped.length=0;g.equipped.push(slot);g.activeSpirit=0;g.hasSpirit=true;
     g.player.x=g.player.tx=180;g.player.y=g.player.ty=150;
     const target=g.makeEnemy('bother',250,150,0);target.hp=target.maxHp=10000;g.enemies=[target];g.events=[];g.zones=[];g.bullets=[];
     g.castSkill(key);
@@ -158,15 +158,15 @@ const fs=require('node:fs/promises');
   await mobile.evaluate(()=>{const g=window.__jamsildo;g.skipAugments=true;g.debugStage(4);g.enterRoom(g.stage.rooms.find(r=>r.kind==='spirit'),null);g.enemies.forEach(e=>g.faceEnemy(e,true));g.checkClear();g.player.x=g.spirit.x;g.player.y=g.spirit.y+10;g.updateSpirit(1);});
   await mobile.locator('#rewardDialog[open]').waitFor();assert.equal(await mobile.locator('.spirit-choice').count(),3);
   await mobile.screenshot({path:join(output,'mobile-spirit-choice.png')});
-  await mobile.locator('.spirit-choice').first().tap();await mobile.waitForFunction(()=>window.__jamsildo.equipped.length===1);
-  await mobile.evaluate(()=>{const g=window.__jamsildo;g.skipAugments=true;for(let i=0;i<6&&g.mode==='talk';i++)g.advanceTalk();g.player.invuln=10000;g.player.maxEnergy=g.player.energy=100;g.equipped[0].tier=2;});
+  await mobile.locator('.spirit-choice').first().tap();await mobile.waitForFunction(()=>window.__jamsildo.equipped.length===2);
+  await mobile.evaluate(()=>{const g=window.__jamsildo;g.skipAugments=true;for(let i=0;i<6&&g.mode==='talk';i++)g.advanceTalk();g.player.invuln=10000;g.player.maxEnergy=g.player.energy=100;g.equipped[g.activeSpirit].tier=2;});
   await mobile.locator('#skills button[data-skill="q"]:enabled').waitFor();
   const button=await mobile.locator('#skills button[data-skill="q"]').boundingBox();const cdp=await context.newCDPSession(mobile);
   await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{id:1,x:button.x+22,y:button.y+20}]});
   await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{id:1,x:250,y:200}]});
   await mobile.locator('#skillAim:not([hidden])').waitFor();
   await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
-  await mobile.waitForFunction(()=>window.__jamsildo.equipped[0].cooldowns.q>0);
+  await mobile.waitForFunction(()=>window.__jamsildo.equipped[window.__jamsildo.activeSpirit].cooldowns.q>0);
   await mobile.screenshot({path:join(output,'mobile-skills.png')});
   assert.deepEqual(errors,[]);console.log(`PASS mobile choice, targeted skill drag, no runtime/network errors. Screenshots: ${output}`);
  }finally{await browser.close();}

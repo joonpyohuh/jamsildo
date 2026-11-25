@@ -20,6 +20,19 @@ import * as fireball from '../vendor/pixelfx/fx/fire/fireball.js';
 import * as fireRing from '../vendor/pixelfx/fx/fire/fire-ring.js';
 import * as burning from '../vendor/pixelfx/fx/status/burning.js';
 import * as haste from '../vendor/pixelfx/fx/status/haste.js';
+import * as splash from '../vendor/pixelfx/fx/water/splash.js';
+import * as heal from '../vendor/pixelfx/fx/holy/heal.js';
+import * as divineShield from '../vendor/pixelfx/fx/holy/divine-shield.js';
+import * as holyPillar from '../vendor/pixelfx/fx/holy/holy-pillar.js';
+import * as rootSnare from '../vendor/pixelfx/fx/nature/root-snare.js';
+import * as vineWhip from '../vendor/pixelfx/fx/nature/vine-whip.js';
+import * as healingBloom from '../vendor/pixelfx/fx/nature/healing-bloom.js';
+import * as shadowTendrils from '../vendor/pixelfx/fx/shadow/shadow-tendrils.js';
+import * as blinkIn from '../vendor/pixelfx/fx/arcane/blink-in.js';
+import * as blinkOut from '../vendor/pixelfx/fx/arcane/blink-out.js';
+import * as manaBurst from '../vendor/pixelfx/fx/arcane/mana-burst.js';
+import * as heavyLanding from '../vendor/pixelfx/fx/impacts/heavy-landing.js';
+import * as poof from '../vendor/pixelfx/fx/spawn/poof.js';
 
 /* 팔레트: 원본의 파랑·주황·분홍을 잠실도 팔레트(은빛 + 온기 하나)로 다시 칠한다. 어두움 → 밝음. */
 const SENA_7 = ['#14161b', '#2a2e36', '#4a4f59', '#7d828c', '#b4b9c2', '#e2e5ea', '#ffffff'];
@@ -32,10 +45,47 @@ const INK_PAPER = ['#07080b', '#7d828c', '#ffffff'];
 const FIRE_9 = ['#4a1712', '#8a1f17', '#c9281f', '#f2561d', '#ff8a2a', '#ffc23d', '#ffe26b', '#fff3a6', '#ffffff'];
 const FIRE_7 = ['#4a1712', '#c9281f', '#f2561d', '#ff8a2a', '#ffc23d', '#ffe26b', '#ffffff'];
 
+/** 정령 색: 게임 안 ELEMENT 빛깔을 어두움 → 밝음 램프로 편 것 */
+const WATER_8 = ['#0a1830', '#123058', '#1d5490', '#2f7fc4', '#5eb0ff', '#96d2ff', '#c8e8ff', '#ffffff'];
+const DARK_8 = ['#0b0612', '#251735', '#3c2452', '#5a3580', '#7a4aa8', '#9662c7', '#b88aff', '#efe0ff'];
+const LIGHT_8 = ['#3a2c12', '#6b5424', '#a08238', '#d1b46a', '#f0d98c', '#fff0b1', '#fff8dc', '#ffffff'];
+const CHAOS_8 = ['#140c24', '#3c2452', '#7a4aa8', '#c9281f', '#ff8a2a', '#8fdc6a', '#96d2ff', '#ffffff'];
+
+interface Cue {
+  mod: PxModule;
+  /** 원본 길이가 2~4초라 전투 템포에 맞춰 빨리 돌린다 */
+  speed: number;
+  options: PxOptions;
+}
+
+/** 이름 하나로 부르는 일회성 효과. 위치와 몸(actor)만 부르는 쪽에서 넘긴다. */
+const CUES = {
+  splash: { mod: splash, speed: 1.8, options: { palette: WATER_8, stone: false, light: 0.5 } },
+  waterHeal: { mod: heal, speed: 1.3, options: { palette: WATER_8, light: 0.6 } },
+  waterShield: { mod: divineShield, speed: 1, options: { palette: WATER_8, radius: 16, light: 0.45 } },
+  snare: { mod: rootSnare, speed: 1.6, options: { light: 0.3 } },
+  vine: { mod: vineWhip, speed: 1.2, options: { light: 0.3 } },
+  bloom: { mod: healingBloom, speed: 1.6, options: { light: 0.5 } },
+  tendrils: { mod: shadowTendrils, speed: 1, options: { palette: DARK_8, light: 0.5 } },
+  blinkOut: { mod: blinkOut, speed: 2.4, options: { palette: DARK_8, light: 0.6 } },
+  blinkIn: { mod: blinkIn, speed: 2.4, options: { palette: DARK_8, light: 0.6 } },
+  lightHeal: { mod: heal, speed: 1.3, options: { palette: LIGHT_8, light: 0.7 } },
+  lightBurst: { mod: manaBurst, speed: 1.8, options: { palette: LIGHT_8, light: 0.8 } },
+  lightPillar: { mod: holyPillar, speed: 1.2, options: { palette: LIGHT_8, light: 0.7 } },
+  chaosBurst: { mod: manaBurst, speed: 1.6, options: { palette: CHAOS_8, light: 0.8 } },
+  landing: { mod: heavyLanding, speed: 1.8, options: { light: 0.3 } },
+  emerge: { mod: poof, speed: 1.8, options: { palette: SOUL_7, light: 0.2 } },
+} satisfies Record<string, Cue>;
+
+export type CueId = keyof typeof CUES;
+
 interface Live {
   fx: PxInstance;
   /** 히트스톱·슬로모와 무관하게 실제 시간으로 흐르는지 */
   realtime: boolean;
+  speed: number;
+  /** 있으면 매 프레임 이 자리를 따라간다 */
+  track?: () => { x: number; y: number };
 }
 
 /** 탑다운 각도 → 원본 효과의 좌우 반전 + 기울기 */
@@ -86,11 +136,17 @@ export class PixelLayer {
     this.img = ctx.createImageData(VIEW_W, VIEW_H);
   }
 
-  private spawn(mod: PxModule, o: PxOptions, realtime = false): PxInstance {
+  private spawn(mod: PxModule, o: PxOptions, realtime = false, speed = 1, track?: Live['track']): PxInstance {
     this.seed = (this.seed * 1103515245 + 12345) % 2147483647;
     const fx = createFx(mod, { seed: this.seed % 997, ...o });
-    this.live.push({ fx, realtime });
+    this.live.push({ fx, realtime, speed, track });
     return fx;
+  }
+
+  /** CUES의 효과를 발밑 (x, footY)에서 튼다. track을 주면 몸을 따라간다. */
+  play(id: CueId, x: number, footY: number, o: PxOptions = {}, track?: Live['track']): PxInstance {
+    const cue: Cue = CUES[id];
+    return this.spawn(cue.mod, { ...cue.options, x, y: footY, ...o }, false, cue.speed, track);
   }
 
   clear(): void {
@@ -98,7 +154,10 @@ export class PixelLayer {
   }
 
   update(dtGame: number, dtReal: number): void {
-    for (const l of this.live) l.fx.update(l.realtime ? dtReal : dtGame);
+    for (const l of this.live) {
+      l.fx.update((l.realtime ? dtReal : dtGame) * l.speed);
+      if (l.track) Object.assign(l.fx.options, l.track());
+    }
     this.live = this.live.filter((l) => !l.fx.done());
   }
 

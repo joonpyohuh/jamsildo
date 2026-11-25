@@ -25,7 +25,11 @@ interface AsepriteJson {
 /** 한 번 재생하고 마지막 프레임에 머무는 태그. 나머지(idle/move/walk/loop)는 반복. */
 const LOOPING = new Set(['idle', 'move', 'walk', 'loop', 'float']);
 
-export interface DrawOptions { flip?: boolean; sx?: number; sy?: number; alpha?: number; tint?: string }
+export interface DrawOptions {
+  flip?: boolean; sx?: number; sy?: number; alpha?: number; tint?: string;
+  /** 기준점을 축으로 기운 정도. 회전 대신 기울임이라 픽셀이 뭉개지지 않고 줄 단위로 밀린다. */
+  lean?: number;
+}
 
 export class AnimSheet {
   readonly cellW: number;
@@ -90,6 +94,7 @@ export class AnimSheet {
     const src = o.tint ? tint(this.image, o.tint) : this.image;
     ctx.save();
     if (o.alpha !== undefined) ctx.globalAlpha = o.alpha;
+    if (o.lean) ctx.transform(1, 0, -o.lean, 1, o.lean * Math.round(y), 0);
     if (o.flip) {
       // 기준점 x를 축으로 좌우 반전
       ctx.translate(Math.round(x), 0);

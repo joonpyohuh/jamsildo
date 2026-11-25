@@ -26,6 +26,23 @@ export interface Zone {
   /** 바닥 모양: hazard = 밟으면 아픈 바닥, 나머지는 공격 예고 */
   look?: 'hazard';
   stopEnergy?:boolean;
+  /** 판정이 중심에서 끝까지 번지는 시간(초). 없으면 처음부터 전체 크기다. */
+  spread?: number;
+  /** 번지는 판정에 이미 맞은 그늘 */
+  reached?: Set<number>;
+  /** 다 번졌을 때의 크기 */
+  full?: { r: number; width: number; length: number };
+}
+
+/** 나이에 맞춰 판정 크기를 키운다. 벽은 긴 쪽으로만 자란다. */
+export function spreadZone(zone: Zone): void {
+  if (zone.spread === undefined) return;
+  zone.reached ??= new Set();
+  const full = (zone.full ??= { r: zone.r, width: zone.width, length: zone.length });
+  const t = Math.min(1, (zone.age - zone.warning) / zone.spread), k = 1 - (1 - t) * (1 - t);
+  zone.r = full.r * k;
+  zone.length = zone.shape === 'wall' && full.width > full.length ? full.length : full.length * k;
+  if (zone.shape === 'wall' && full.width > full.length) zone.width = full.width * k;
 }
 export function contains(zone: Zone, x: number, y: number): boolean {
   if (zone.safe && Math.hypot(x - zone.safe.x, y - zone.safe.y) <= zone.safe.r) return false;

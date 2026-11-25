@@ -41,6 +41,18 @@ export const FORMS: Readonly<Record<FormId, FormSpec>> = {
   },
 };
 
+/**
+ * 초반 단검 보정. 2026-11 런 기록 484판 중 47%가 실제 플레이 30초 안에 1스테이지에서 끝났고(사망 0),
+ * 그중 88%가 기본 무기인 단검이었다. 앞 스테이지에서만 판정을 넓히고 연타를 빠르게 한다.
+ */
+export const EARLY_DAGGER = { untilStage: 3, range: 42, arc: Math.PI * 0.75, cooldown: 0.13 } as const;
+
+/** 스테이지에 맞춘 형태 수치 */
+export function formFor(id: FormId, stage: number): FormSpec {
+  if (id !== 'dagger' || stage > EARLY_DAGGER.untilStage) return FORMS[id];
+  return { ...FORMS.dagger, range: EARLY_DAGGER.range, arc: EARLY_DAGGER.arc, cooldown: EARLY_DAGGER.cooldown };
+}
+
 /** 판정 거리. 적의 '가장자리'까지의 거리 기준. */
 export const SENSE = {
   touch: 13,
